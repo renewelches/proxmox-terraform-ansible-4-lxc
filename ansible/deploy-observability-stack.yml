@@ -1,0 +1,79 @@
+---
+- name: Prepare all containers
+  hosts: containers
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install docker Python library (required for ansible docker modules)
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Ensure docker metrics endpoint for prometheus is configured and exposed
+      ansible.builtin.lineinfile:
+        path: /etc/docker/daemon.json
+        line: "{ \"metrics-addr\": \"0.0.0.0:9323\" }"
+        state: present
+        create: true
+    - name: Ensure docker service is restarted after config change
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+- name: Deploy Prometheu
+  hosts: open-webui
+  become: yes
+  vars:
+    searxng_ip: "{{ hostvars['searxng']['ansible_host'] }}"
+  tasks:
+    - name: Copy docker.env file
+      template:
+        src: openwebui/docker.env.j2
+        dest: /tmp/docker.env
+
+    - name: Run Open WebUI container
+      community.docker.docker_container:
+        name: open-webui
+        image: ghcr.io/open-webui/open-webui:main
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "80:8080"
+        env:
+          OLLAMA_BASE_URL: "{{ ollama_host }}"
+        env_file: /tmp/docker.env
+        volumes:
+          - open-webui:/app/backend/data
+          - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+
+- name: Deploy Grafana
+  hosts: searxng
+  become: yes
+  tasks:
+    - name: Create config directory
+      file:
+        path: /root/config
+        state: directory
+
+    - name: Copy SearXNG settings
+      copy:
+        src: searxng/settings.yml
+        dest: /root/config/settings.yml
+
+    - name: Run SearXNG container
+      community.docker.docker_container:
+        name: searxng
+        image: ghcr.io/searxng/searxng:2026.1.16-2d9f213ca
+        state: started
+        restart_policy: unless-stopped
+        dns_servers:
+          - 9.9.9.9
+        ports:
+          - "80:8080"
+        volumes:
+          - /root/config:/etc/searxng
+          - /root/data:/var/cache/searxng

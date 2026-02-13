@@ -27,7 +27,17 @@ terraform.rc
 # .terraform.lock.hcl
 terraform.log
 
-.DS_Store
-openwebui/docker.env.rendered
+# Vagrant
+**/.vagrant/
 
-ansible/inventory.yml
+# Generated files
+**/docker.env.rendered
+
+# Ansible generated inventory
+ansible/inventory/**/inventory.ini
+
+# Claude Code
+CLAUDE.md
+
+# OS
+.DS_Store

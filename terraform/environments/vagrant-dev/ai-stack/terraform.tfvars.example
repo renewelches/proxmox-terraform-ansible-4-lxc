@@ -1,4 +1,0 @@
-# Copy this file to terraform.tfvars and fill in your actual values
-# DO NOT commit terraform.tfvars to version control
-
-ollama_host     = "http://ollama.lab.home:11434"

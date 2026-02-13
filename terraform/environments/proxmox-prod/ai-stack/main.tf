@@ -149,7 +149,7 @@ resource "proxmox_virtual_environment_container" "n8n-container" {
 
 # Generate Ansible inventory from container IPs
 resource "local_file" "ansible_inventory" {
-  content = templatefile("${path.module}/../../../../ansible/inventory/proxmox-prod/inventory.tpl", {
+  content = templatefile("${path.module}/../../../../ansible/inventory/proxmox-prod/ai-stack/inventory.tpl", {
     containers = {
       "n8n"        = split("/", proxmox_virtual_environment_container.n8n-container.initialization[0].ip_config[0].ipv4[0].address)[0]
       "open-webui" = split("/", proxmox_virtual_environment_container.open-webui-container.initialization[0].ip_config[0].ipv4[0].address)[0]
@@ -157,6 +157,6 @@ resource "local_file" "ansible_inventory" {
     }
     ollama_host = var.ollama_host
   })
-  filename = "${path.module}/../../../../ansible/inventory/proxmox-prod/inventory.ini"
+  filename = "${path.module}/../../../../ansible/inventory/proxmox-prod/ai-stack/inventory.ini"
 }
 

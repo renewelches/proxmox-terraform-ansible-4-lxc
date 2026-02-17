@@ -48,6 +48,7 @@ resource "proxmox_virtual_environment_container" "open-webui-container" {
 
   memory {
     dedicated = 1536
+    swap      = 768
   }
 
 }
@@ -95,7 +96,8 @@ resource "proxmox_virtual_environment_container" "searxng-container" {
   }
 
   memory {
-    dedicated = 1024
+    dedicated = 512
+    swap      = 256
   }
 }
 
@@ -144,6 +146,7 @@ resource "proxmox_virtual_environment_container" "n8n-container" {
 
   memory {
     dedicated = 6144
+    swap      = 3072
   }
 }
 

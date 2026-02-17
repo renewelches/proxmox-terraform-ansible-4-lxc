@@ -2,33 +2,34 @@
 resource "vagrant_vm" "prometheus-container" {
   env = {
     # force terraform to re-run vagrant if the Vagrantfile changes
-    VAGRANTFILE_HASH = md5(file("./openwebui/Vagrantfile")),
+    VAGRANTFILE_HASH = md5(file("./prometheus/Vagrantfile")),
   }
   get_ports       = true
-  vagrantfile_dir = "./openwebui"
+  vagrantfile_dir = "./prometheus"
 }
 
-resource "vagrant_vm" "graphana-container" {
+resource "vagrant_vm" "grafana-container" {
   env = {
     # force terraform to re-run vagrant if the Vagrantfile changes
-    VAGRANTFILE_HASH = md5(file("./searxng/Vagrantfile")),
+    VAGRANTFILE_HASH = md5(file("./grafana/Vagrantfile")),
   }
   get_ports       = true
-  vagrantfile_dir = "./searxng"
+  vagrantfile_dir = "./grafana"
 }
 
 
 resource "local_file" "ansible_inventory" {
-  content = templatefile("${path.module}/../../../ansible/inventory/vagrant-dev/inventory.tpl", {
-    openwebui_port = vagrant_vm.open-webui-container.ports[0][0].host
-    openwebui_key  = "${path.cwd}/${vagrant_vm.open-webui-container.vagrantfile_dir}/.vagrant/machines/openwebui/virtualbox/private_key"
-    searxng_port   = vagrant_vm.searxng-container.ports[0][0].host
-    searxng_key    = "${path.cwd}/${vagrant_vm.searxng-container.vagrantfile_dir}/.vagrant/machines/searxng/virtualbox/private_key"
-    n8n_port       = vagrant_vm.n8n-container.ports[0][0].host
-    n8n_key        = "${path.cwd}/${vagrant_vm.n8n-container.vagrantfile_dir}/.vagrant/machines/n8n/virtualbox/private_key"
-    ollama_host    = var.ollama_host
+  content = templatefile("${path.module}/../../../../ansible/inventory/vagrant-dev/observability-stack/inventory.tpl", {
+    prometheus_port = vagrant_vm.prometheus-container.ports[0][0].host
+    prometheus_key  = "${path.cwd}/${vagrant_vm.prometheus-container.vagrantfile_dir}/.vagrant/machines/prometheus/virtualbox/private_key"
+    grafana_port   = vagrant_vm.grafana-container.ports[0][0].host
+    grafana_key    = "${path.cwd}/${vagrant_vm.grafana-container.vagrantfile_dir}/.vagrant/machines/grafana/virtualbox/private_key"
+    prometheus_ip         = "192.168.56.6"
+    ai_stack_ip_openwebui = "192.168.56.3"
+    ai_stack_ip_searxng   = "192.168.56.4"
+    ai_stack_ip_n8n       = "192.168.56.5"
   })
-  filename = "${path.module}/../../../ansible/inventory/vagrant-dev/inventory.ini"
+  filename = "${path.module}/../../../../ansible/inventory/vagrant-dev/observability-stack/inventory.ini"
 }
 
 

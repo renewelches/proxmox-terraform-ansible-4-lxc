@@ -4,20 +4,20 @@ ${name} ansible_host=${ip}
 %{ endfor ~}
 
 [containers]
-%{ for name, ip in containers ~}
-${name}
-%{ endfor ~}
+prometheus
+grafana
 
-[n8n]
-n8n
+[prometheus]
+prometheus
 
-[open-webui]
-open-webui
-
-[searxng]
-searxng
+[grafana]
+grafana
 
 [all:vars]
 ansible_user=root
 ansible_python_interpreter=/usr/bin/python3.13
-ollama_host=${ollama_host}
+prometheus_ip=${containers.prometheus}
+grafana_ip=${containers.grafana}
+ai_stack_ip_openwebui=${ai_stack_ip_openwebui}
+ai_stack_ip_searxng=${ai_stack_ip_searxng}
+ai_stack_ip_n8n=${ai_stack_ip_n8n}

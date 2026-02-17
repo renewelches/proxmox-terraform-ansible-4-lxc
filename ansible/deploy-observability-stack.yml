@@ -7,12 +7,10 @@
       apt:
         update_cache: yes
         upgrade: yes
-
     - name: Install docker Python library (required for ansible docker modules)
       apt:
         name: python3-docker
         state: present
-
     - name: Ensure docker metrics endpoint for prometheus is configured and exposed
       ansible.builtin.lineinfile:
         path: /etc/docker/daemon.json
@@ -24,56 +22,52 @@
         name: docker
         state: restarted
 
-- name: Deploy Prometheu
-  hosts: open-webui
+- name: Deploy Prometheus
+  hosts: prometheus
   become: yes
-  vars:
-    searxng_ip: "{{ hostvars['searxng']['ansible_host'] }}"
   tasks:
-    - name: Copy docker.env file
+    - name: Ensure prometheus directory exists
+      ansible.builtin.file:
+        path: ~/prometheus/
+        state: directory
+    - name: Copy prometheus.yml file
       template:
-        src: openwebui/docker.env.j2
-        dest: /tmp/docker.env
-
-    - name: Run Open WebUI container
+        src: prometheus/prometheus.yml.j2
+        dest: ~/prometheus/prometheus.yml
+    - name: Run prometheus container
       community.docker.docker_container:
-        name: open-webui
-        image: ghcr.io/open-webui/open-webui:main
+        name: prometheus
+        image: prom/prometheus:latest
         state: started
         restart_policy: unless-stopped
         ports:
-          - "80:8080"
-        env:
-          OLLAMA_BASE_URL: "{{ ollama_host }}"
-        env_file: /tmp/docker.env
+          - "9090:9090"
         volumes:
           - open-webui:/app/backend/data
-          - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+          - ~/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
 - name: Deploy Grafana
-  hosts: searxng
+  hosts: grafana
   become: yes
   tasks:
-    - name: Create config directory
-      file:
-        path: /root/config
+    - name: Ensure Grafana provisioning directory exists
+      ansible.builtin.file:
+        path: ~/grafana/provisioning/datasources
         state: directory
 
-    - name: Copy SearXNG settings
-      copy:
-        src: searxng/settings.yml
-        dest: /root/config/settings.yml
+    - name: Copy datasource provisioning config
+      template:
+        src: grafana/datasources.yml.j2
+        dest: ~/grafana/provisioning/datasources/datasources.yml
 
-    - name: Run SearXNG container
+    - name: Run Grafana container
       community.docker.docker_container:
-        name: searxng
-        image: ghcr.io/searxng/searxng:2026.1.16-2d9f213ca
+        name: grafana
+        image: grafana/grafana:latest
         state: started
         restart_policy: unless-stopped
-        dns_servers:
-          - 9.9.9.9
         ports:
-          - "80:8080"
+          - "80:3000"
         volumes:
-          - /root/config:/etc/searxng
-          - /root/data:/var/cache/searxng
+          - grafana-data:/var/lib/grafana
+          - ~/grafana/provisioning:/etc/grafana/provisioning:ro

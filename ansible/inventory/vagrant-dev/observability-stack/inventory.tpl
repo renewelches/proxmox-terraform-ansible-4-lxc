@@ -1,23 +1,21 @@
 [all]
-n8n ansible_host=127.0.0.1 ansible_port=${n8n_port} ansible_ssh_private_key_file=${n8n_key}
-open-webui ansible_host=127.0.0.1 ansible_port=${openwebui_port} ansible_ssh_private_key_file=${openwebui_key}
-searxng ansible_host=127.0.0.1 ansible_port=${searxng_port} ansible_ssh_private_key_file=${searxng_key}
+prometheus ansible_host=127.0.0.1 ansible_port=${prometheus_port} ansible_ssh_private_key_file=${prometheus_key}
+grafana   ansible_host=127.0.0.1 ansible_port=${grafana_port} ansible_ssh_private_key_file=${grafana_key}
 
 [containers]
-n8n
-open-webui
-searxng
+prometheus
+grafana
 
-[n8n]
-n8n
+[prometheus]
+prometheus
 
-[open-webui]
-open-webui
-
-[searxng]
-searxng
+[grafana]
+grafana
 
 [all:vars]
 ansible_user=vagrant
 ansible_python_interpreter=/usr/bin/python3.13
-ollama_host=${ollama_host}
+prometheus_ip=${prometheus_ip}
+ai_stack_ip_openwebui=${ai_stack_ip_openwebui}
+ai_stack_ip_searxng=${ai_stack_ip_searxng}
+ai_stack_ip_n8n=${ai_stack_ip_n8n}

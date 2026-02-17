@@ -2,33 +2,33 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.vm.define "n8n" do |n8n|
+  config.vm.define "prometheus" do |prometheus|
     # debian/testing64 is the closest to Debian 13 (Trixie) available
     # Alternative: use a custom-built trixie box from https://github.com/rgl/debian-vagrant
-    n8n.vm.box = "cloud-image/debian-13"
-    n8n.vm.hostname = "n8n"
+    prometheus.vm.box = "cloud-image/debian-13"
+    prometheus.vm.hostname = "prometheus"
 
     # Disable synced folder
-    n8n.vm.synced_folder ".", "/vagrant", disabled: true
+    prometheus.vm.synced_folder ".", "/vagrant", disabled: true
 
     # Private network for inter-VM communication
-    n8n.vm.network "private_network", ip: "192.168.56.5"
+    prometheus.vm.network "private_network", ip: "192.168.56.6"
 
-    # Port forwarding for n8n (host:5678 -> guest:5678)
-    n8n.vm.network "forwarded_port", guest: 5678, host: 5678
+    # Port forwarding for prometheus (host:5678 -> guest:5678)
+    prometheus.vm.network "forwarded_port", guest: 9090, host: 9090
     
     # Resize disk to 50GB (requires vagrant-disksize plugin or manual resize)
     # Install plugin: vagrant plugin install vagrant-disksize
-    n8n.vm.disk :disk, size: "50GB", primary: true
+    prometheus.vm.disk :disk, size: "20GB", primary: true
 
-    n8n.vm.provider "virtualbox" do |vb|
-      vb.name = "n8n"
+    prometheus.vm.provider "virtualbox" do |vb|
+      vb.name = "prometheus"
       vb.memory = 2048
-      vb.cpus = 2
+      vb.cpus = 1
     end
 
     # Provision Docker
-    n8n.vm.provision "shell", inline: <<-SHELL
+    prometheus.vm.provision "shell", inline: <<-SHELL
       apt-get update
       apt-get install -y docker.io docker-compose
       systemctl enable docker

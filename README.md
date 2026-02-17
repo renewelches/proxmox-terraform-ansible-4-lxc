@@ -7,20 +7,40 @@ This repository contains Terraform and Ansible configuration for deploying conta
 
 ## What This Deploys
 
+The project is organized into two independently deployable stacks:
+
+### AI Stack
+
 Three Docker-enabled containers running:
 
 1. **Open WebUI** (`open-webui`) - Web interface for Ollama AI models
-   - 2 CPU cores, 1.5GB RAM, 20GB storage
+   - 2 CPU cores, 1.5GB RAM, 50GB storage
    - Connected to a remote Ollama instance
    - Integrates with SearXNG for web search capabilities
 
 2. **SearXNG** (`searxng`) - Privacy-respecting metasearch engine
-   - 1 CPU core, 1GB RAM, 50GB storage
+   - 1 CPU core, 1GB RAM, 30GB storage
    - Pre-configured for integration with Open WebUI
 
 3. **n8n** (`n8n`) - Workflow automation platform
    - 2 CPU cores, 6GB RAM, 50GB storage
    - Persistent data storage with Docker volumes and SQLite
+
+### Observability Stack
+
+Two Docker-enabled containers for monitoring the AI stack:
+
+1. **Prometheus** (`prometheus`) - Metrics collection and monitoring
+   - 1 CPU core, 2GB RAM, 20GB storage
+   - Scrapes Docker metrics from all AI stack containers on port 9323
+   - Accessible on port 9090
+
+2. **Grafana** (`grafana`) - Visualization and dashboards
+   - 1 CPU core, 1GB RAM, 20GB storage
+   - Auto-provisioned with Prometheus as a data source
+   - Accessible on port 3000
+
+Both stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"` in `/etc/docker/daemon.json`), enabling Prometheus to scrape container metrics across all hosts.
 
 ## Environments
 
@@ -47,40 +67,57 @@ Three Docker-enabled containers running:
 ├── terraform/
 │   └── environments/
 │       ├── proxmox-prod/
-│       │   ├── ai-stack/              # Production: Proxmox LXC containers
+│       │   ├── ai-stack/                  # Production: AI services on Proxmox LXC
 │       │   │   ├── main.tf
 │       │   │   ├── variables.tf
 │       │   │   ├── outputs.tf
 │       │   │   ├── versions.tf
 │       │   │   └── terraform.tfvars.example
-│       │   └── observability/         # Observability stack (Proxmox only)
+│       │   └── observability/             # Production: Monitoring on Proxmox LXC
 │       │       ├── main.tf
-│       │       └── variables.tf
+│       │       ├── variables.tf
+│       │       ├── versions.tf
+│       │       └── terraform.tfvars.example
 │       └── vagrant-dev/
-│           └── ai-stack/              # Development: Vagrant VirtualBox VMs
+│           ├── ai-stack/                  # Development: AI services on Vagrant VMs
+│           │   ├── main.tf
+│           │   ├── variables.tf
+│           │   ├── outputs.tf
+│           │   ├── versions.tf
+│           │   ├── openwebui/Vagrantfile
+│           │   ├── searxng/Vagrantfile
+│           │   └── n8n/Vagrantfile
+│           └── observability/             # Development: Monitoring on Vagrant VMs
 │               ├── main.tf
-│               ├── variables.tf
-│               ├── outputs.tf
 │               ├── versions.tf
-│               ├── terraform.tfvars.example
-│               ├── openwebui/Vagrantfile
-│               ├── searxng/Vagrantfile
-│               └── n8n/Vagrantfile
+│               ├── prometheus/Vagrantfile
+│               └── grafana/Vagrantfile
 └── ansible/
-    ├── deploy-containers.yml      # Shared playbook for both environments
+    ├── deploy-ai-stack.yml                # Playbook for AI services
+    ├── deploy-observability-stack.yml     # Playbook for monitoring services
     ├── templates/
-    │   └── openwebui/
-    │       └── docker.env.j2      # Open WebUI environment config (Jinja2)
+    │   ├── openwebui/
+    │   │   └── docker.env.j2             # Open WebUI environment config
+    │   ├── prometheus/
+    │   │   └── prometheus.yml.j2         # Prometheus scrape config
+    │   └── grafana/
+    │       └── datasources.yml.j2        # Grafana datasource config
     ├── files/
     │   └── searxng/
-    │       └── settings.yml       # SearXNG search engine configuration
+    │       └── settings.yml              # SearXNG search engine configuration
     └── inventory/
         ├── proxmox-prod/
         │   ├── ansible.cfg
-        │   └── inventory.tpl      # Terraform template → inventory.ini
+        │   ├── ai-stack/
+        │   │   └── inventory.tpl         # Terraform template → inventory.ini
+        │   └── observability-stack/
+        │       └── inventory.tpl         # Terraform template → inventory.ini
         └── vagrant-dev/
             ├── ansible.cfg
-            └── inventory.tpl      # Terraform template → inventory.ini
+            ├── ai-stack/
+            │   └── inventory.tpl         # Terraform template → inventory.ini
+            └── observability-stack/
+                └── inventory.tpl         # Terraform template → inventory.ini
 ```
 
 ## Setup
@@ -115,18 +152,18 @@ pveum acl modify / --user terraform@pve --role PVEAdmin
 
 ### 3. Configure Variables
 
-Each environment has its own `terraform.tfvars.example`. Copy it to `terraform.tfvars` in the same directory:
+Each stack has its own `terraform.tfvars.example`. Copy it to `terraform.tfvars` in the same directory:
 
 ```bash
-# For proxmox-prod
-cd terraform/environments/proxmox-prod/ai-stack
+# AI stack
+cd terraform/environments/proxmox-prod/ai-stack    # or vagrant-dev/ai-stack
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your Proxmox API details, static IPs, etc.
+# Edit terraform.tfvars with your environment-specific values
 
-# For vagrant-dev
-cd terraform/environments/vagrant-dev/ai-stack
+# Observability stack
+cd terraform/environments/proxmox-prod/observability    # or vagrant-dev/observability
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your ollama_host URL
+# Edit terraform.tfvars — includes ai_stack_ips for cross-stack monitoring
 ```
 
 Use environment variables for sensitive data:
@@ -146,29 +183,48 @@ ansible-galaxy collection install community.docker
 
 ### 5. Deploy
 
-**Step 1: Provision hosts with Terraform**
+Each stack is deployed independently with its own Terraform state and Ansible inventory. Deploy the AI stack first, then the observability stack.
+
+**AI Stack**
 
 ```bash
-# Choose your environment
+# Step 1: Provision hosts
 cd terraform/environments/vagrant-dev/ai-stack   # or proxmox-prod/ai-stack
-
 terraform init
 terraform plan
 terraform apply
-```
+# Creates hosts + generates ansible/inventory/<env>/ai-stack/inventory.ini
 
-This creates the hosts and generates `ansible/inventory/<env>/inventory.ini`.
-
-**Step 2: Deploy Docker containers with Ansible**
-
-```bash
-# From the repo root — choose the matching inventory
+# Step 2: Deploy containers (from repo root)
 ANSIBLE_CONFIG=ansible/inventory/vagrant-dev/ansible.cfg \
-  ansible-playbook -i ansible/inventory/vagrant-dev/inventory.ini ansible/deploy-containers.yml
+  ansible-playbook -i ansible/inventory/vagrant-dev/ai-stack/inventory.ini \
+  ansible/deploy-ai-stack.yml
 
 # Or for production
 ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
-  ansible-playbook -i ansible/inventory/proxmox-prod/inventory.ini ansible/deploy-containers.yml
+  ansible-playbook -i ansible/inventory/proxmox-prod/ai-stack/inventory.ini \
+  ansible/deploy-ai-stack.yml
+```
+
+**Observability Stack**
+
+```bash
+# Step 1: Provision hosts
+cd terraform/environments/vagrant-dev/observability   # or proxmox-prod/observability
+terraform init
+terraform plan
+terraform apply
+# Creates hosts + generates ansible/inventory/<env>/observability-stack/inventory.ini
+
+# Step 2: Deploy containers (from repo root)
+ANSIBLE_CONFIG=ansible/inventory/vagrant-dev/ansible.cfg \
+  ansible-playbook -i ansible/inventory/vagrant-dev/observability-stack/inventory.ini \
+  ansible/deploy-observability-stack.yml
+
+# Or for production
+ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
+  ansible-playbook -i ansible/inventory/proxmox-prod/observability-stack/inventory.ini \
+  ansible/deploy-observability-stack.yml
 ```
 
 ### 6. Set Up SSH Agent (proxmox-prod only)
@@ -221,3 +277,5 @@ ls -la /var/lib/vz/template/cache/debian13-docker-template.tar.gz
 - [Open WebUI Documentation](https://docs.openwebui.com/)
 - [SearXNG Documentation](https://docs.searxng.org/)
 - [n8n Documentation](https://docs.n8n.io/)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Grafana Documentation](https://grafana.com/docs/)

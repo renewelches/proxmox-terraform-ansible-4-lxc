@@ -48,3 +48,12 @@ variable "os_type" {
   type        = string
   default     = "debian"
 }
+
+variable "ai_stack_ips" {
+  description = "IP addresses of ai-stack LXCs for Prometheus scrape targets"
+  type = object({
+    open_webui = string
+    searxng    = string
+    n8n        = string
+  })
+}

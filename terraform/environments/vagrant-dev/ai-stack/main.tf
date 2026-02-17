@@ -29,16 +29,16 @@ resource "vagrant_vm" "n8n-container" {
 }
 
 resource "local_file" "ansible_inventory" {
-  content = templatefile("${path.module}/../../../ansible/inventory/vagrant-dev/inventory.tpl", {
+  content = templatefile("${path.module}/../../../../ansible/inventory/vagrant-dev/ai-stack/inventory.tpl", {
     openwebui_port = vagrant_vm.open-webui-container.ports[0][0].host
     openwebui_key  = "${path.cwd}/${vagrant_vm.open-webui-container.vagrantfile_dir}/.vagrant/machines/openwebui/virtualbox/private_key"
     searxng_port   = vagrant_vm.searxng-container.ports[0][0].host
     searxng_key    = "${path.cwd}/${vagrant_vm.searxng-container.vagrantfile_dir}/.vagrant/machines/searxng/virtualbox/private_key"
     n8n_port       = vagrant_vm.n8n-container.ports[0][0].host
     n8n_key        = "${path.cwd}/${vagrant_vm.n8n-container.vagrantfile_dir}/.vagrant/machines/n8n/virtualbox/private_key"
-    ollama_host     = var.ollama_host
+    ollama_host    = var.ollama_host
   })
-  filename = "${path.module}/../../../ansible/inventory/vagrant-dev/inventory.ini"
+  filename = "${path.module}/../../../../ansible/inventory/vagrant-dev/ai-stack/inventory.ini"
 }
 
 

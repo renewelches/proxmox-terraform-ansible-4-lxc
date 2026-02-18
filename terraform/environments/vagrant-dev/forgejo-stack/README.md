@@ -31,7 +31,7 @@ ANSIBLE_CONFIG=ansible/inventory/vagrant-dev/ansible.cfg \
 
 ## Access
 
-Forgejo runs with HTTPS using the production self-signed certificate. The cert is valid for `forgejo.grumples.home` / `192.168.86.210`, so your browser will show a certificate warning on localhost.
+Forgejo runs with HTTPS using the production self-signed certificate. The cert is valid for the configured `forgejo_domain` / `192.168.86.210`, so your browser will show a certificate warning on localhost.
 
 - Forgejo web UI: `https://localhost:3000` (accept the cert warning)
 - Git SSH: `ssh://git@localhost:2222`

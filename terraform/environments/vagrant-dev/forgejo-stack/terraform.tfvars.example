@@ -1,0 +1,4 @@
+# Copy this file to terraform.tfvars and fill in your actual values
+# DO NOT commit terraform.tfvars to version control
+
+forgejo_domain = "forgejo.example.com"

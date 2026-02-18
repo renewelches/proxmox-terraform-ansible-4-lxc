@@ -53,7 +53,8 @@ resource "proxmox_virtual_environment_container" "forgejo-container" {
 
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/../../../../ansible/inventory/proxmox-prod/forgejo-stack/inventory.tpl", {
-    forgejo_ip = split("/", proxmox_virtual_environment_container.forgejo-container.initialization[0].ip_config[0].ipv4[0].address)[0]
+    forgejo_ip     = split("/", proxmox_virtual_environment_container.forgejo-container.initialization[0].ip_config[0].ipv4[0].address)[0]
+    forgejo_domain = var.forgejo_domain
   })
   filename = "${path.module}/../../../../ansible/inventory/proxmox-prod/forgejo-stack/inventory.ini"
 }

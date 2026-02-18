@@ -17,7 +17,7 @@ Provisions a single LXC container on Proxmox VE for Forgejo (self-hosted Git ser
 
 ## TLS Certificate
 
-Forgejo runs with a self-signed certificate for `forgejo.grumples.home` (IP SAN: `192.168.86.210`). The cert and key are deployed from `ansible/files/forgejo/` to `/etc/forgejo/certs/` on the container, owned by UID 1000 (Forgejo's `git` user).
+Forgejo runs with a self-signed certificate. The domain is set via the `forgejo_domain` Terraform variable (e.g. `forgejo.example.com`) and is passed through the Ansible inventory to the container's environment. The cert and key are deployed from `ansible/files/forgejo/` to `/etc/forgejo/certs/` on the container, owned by UID 1000 (Forgejo's `git` user).
 
 The private key (`ansible/files/forgejo/forgejo.key`) is excluded from version control via `.gitignore`.
 
@@ -55,4 +55,4 @@ ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
 
 ## First Run
 
-On first access Forgejo shows an installation wizard at `https://forgejo.grumples.home:3000` (or `https://192.168.86.210:3000`). Complete it to create your admin account. The database uses SQLite by default.
+On first access Forgejo shows an installation wizard at `https://<forgejo_domain>:3000` (or `https://192.168.86.210:3000`). Complete it to create your admin account. The database uses SQLite by default.

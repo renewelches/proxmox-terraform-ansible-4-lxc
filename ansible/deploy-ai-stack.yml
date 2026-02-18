@@ -40,6 +40,7 @@
         name: open-webui
         image: ghcr.io/open-webui/open-webui:main
         state: started
+        pull: always
         restart_policy: unless-stopped
         ports:
           - "80:8080"
@@ -67,6 +68,7 @@
     - name: Run SearXNG container
       community.docker.docker_container:
         name: searxng
+        #I had isses with some newer versions, for now I leave it pinned to the last version that was working for me
         image: ghcr.io/searxng/searxng:2026.1.16-2d9f213ca
         state: started
         restart_policy: unless-stopped
@@ -91,6 +93,7 @@
         name: n8n
         image: docker.n8n.io/n8nio/n8n
         state: started
+        pull: always
         restart_policy: unless-stopped
         ports:
           - "5678:5678"

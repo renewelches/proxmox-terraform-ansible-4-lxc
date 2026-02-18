@@ -65,7 +65,7 @@
         restart_policy: unless-stopped
         ports:
           - "443:3000"
-          - "2222:22"
+          - "2222:2222"
         env:
           FORGEJO__server__PROTOCOL: "https"
           FORGEJO__server__HTTP_PORT: "3000"
@@ -75,6 +75,7 @@
           FORGEJO__server__KEY_FILE: "/certs/forgejo.key"
           FORGEJO__server__SSH_DOMAIN: "{{ forgejo_domain }}"
           FORGEJO__server__SSH_PORT: "2222"
+          FORGEJO__server__SSH_LISTEN_PORT: "2222"
           FORGEJO__server__START_SSH_SERVER: "true"
           FORGEJO__database__DB_TYPE: "sqlite3"
         volumes:

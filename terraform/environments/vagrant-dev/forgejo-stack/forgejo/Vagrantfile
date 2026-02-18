@@ -1,0 +1,39 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.define "forgejo" do |forgejo|
+    # debian/testing64 is the closest to Debian 13 (Trixie) available
+    forgejo.vm.box = "cloud-image/debian-13"
+    forgejo.vm.hostname = "forgejo"
+
+    # Disable synced folder
+    forgejo.vm.synced_folder ".", "/vagrant", disabled: true
+
+    # Private network for inter-VM communication
+    forgejo.vm.network "private_network", ip: "192.168.56.10"
+
+    # Port forwarding for Forgejo HTTPS web UI (host:3000 -> guest:3000)
+    forgejo.vm.network "forwarded_port", guest: 3000, host: 3000
+
+    # Port forwarding for Forgejo git SSH (host:2222 -> guest:2222)
+    forgejo.vm.network "forwarded_port", guest: 2222, host: 2222
+
+    forgejo.vm.disk :disk, size: "50GB", primary: true
+
+    forgejo.vm.provider "virtualbox" do |vb|
+      vb.name = "forgejo"
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+
+    # Provision Docker
+    forgejo.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+end

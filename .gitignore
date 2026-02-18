@@ -36,6 +36,9 @@ terraform.log
 # Ansible generated inventory
 ansible/inventory/**/inventory.ini
 
+# TLS private keys (never commit)
+ansible/files/**/*.key
+
 # Claude Code
 CLAUDE.md
 

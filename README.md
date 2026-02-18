@@ -7,40 +7,50 @@ This repository contains Terraform and Ansible configuration for deploying conta
 
 ## What This Deploys
 
-The project is organized into two independently deployable stacks:
+The project is organized into three independently deployable stacks:
 
 ### AI Stack
 
 Three Docker-enabled containers running:
 
-1. **Open WebUI** (`open-webui`) - Web interface for Ollama AI models
-   - 2 CPU cores, 1.5GB RAM, 50GB storage
+1. **Open WebUI** (`open-webui`) — Web interface for Ollama AI models
+   - 2 CPU cores, 1.5 GB RAM, 50 GB storage
    - Connected to a remote Ollama instance
    - Integrates with SearXNG for web search capabilities
 
-2. **SearXNG** (`searxng`) - Privacy-respecting metasearch engine
-   - 1 CPU core, 1GB RAM, 30GB storage
+2. **SearXNG** (`searxng`) — Privacy-respecting metasearch engine
+   - 1 CPU core, 512 MB RAM, 30 GB storage
    - Pre-configured for integration with Open WebUI
 
-3. **n8n** (`n8n`) - Workflow automation platform
-   - 2 CPU cores, 6GB RAM, 50GB storage
+3. **n8n** (`n8n`) — Workflow automation platform
+   - 2 CPU cores, 6 GB RAM, 50 GB storage
    - Persistent data storage with Docker volumes and SQLite
 
 ### Observability Stack
 
 Two Docker-enabled containers for monitoring the AI stack:
 
-1. **Prometheus** (`prometheus`) - Metrics collection and monitoring
-   - 1 CPU core, 2GB RAM, 20GB storage
+1. **Prometheus** (`prometheus`) — Metrics collection and monitoring
+   - 2 CPU cores, 2 GB RAM, 50 GB storage
    - Scrapes Docker metrics from all AI stack containers on port 9323
    - Accessible on port 9090
 
-2. **Grafana** (`grafana`) - Visualization and dashboards
-   - 1 CPU core, 1GB RAM, 20GB storage
+2. **Grafana** (`grafana`) — Visualization and dashboards
+   - 1 CPU core, 1 GB RAM, 25 GB storage
    - Auto-provisioned with Prometheus as a data source
    - Accessible on port 3000
 
-Both stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"` in `/etc/docker/daemon.json`), enabling Prometheus to scrape container metrics across all hosts.
+### Forgejo Stack
+
+One Docker-enabled container for self-hosted Git:
+
+1. **Forgejo** (`forgejo`) — Self-hosted Git service
+   - 2 CPU cores, 2 GB RAM, 50 GB storage
+   - HTTPS on port 3000 with a self-signed certificate
+   - Git SSH on port 2222
+   - SQLite database
+
+All stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"` in `/etc/docker/daemon.json`), enabling Prometheus to scrape container metrics across all hosts.
 
 ## Environments
 
@@ -51,73 +61,52 @@ Both stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"`
 | Networking | Static IPs | Port forwarding (localhost) |
 | SSH User | root | vagrant |
 | SSH Auth | SSH agent key | Vagrant-generated keys |
-| Base Image | `debian13-docker-template.tar.gz` | `cloud-image/debian-13` box |
+| Base Image | `debian13-docker_v29-template.tar.gz` | `cloud-image/debian-13` box |
 
 ## Prerequisites
 
 - Terraform >= 1.0
 - Ansible >= 2.9 with `community.docker` collection
 - For **proxmox-prod**: Proxmox VE server with API access and custom Debian 13 Docker template
-- For **vagrant-dev**: VirtualBox and Vagrant installed
+- For **vagrant-dev**: VirtualBox and Vagrant with `vagrant-disksize` plugin
 
 ## Project Structure
 
 ```
 .
-├── terraform/
+├── terraform/                             # → terraform/README.md
 │   └── environments/
-│       ├── proxmox-prod/
-│       │   ├── ai-stack/                  # Production: AI services on Proxmox LXC
-│       │   │   ├── main.tf
-│       │   │   ├── variables.tf
-│       │   │   ├── outputs.tf
-│       │   │   ├── versions.tf
-│       │   │   └── terraform.tfvars.example
-│       │   └── observability/             # Production: Monitoring on Proxmox LXC
-│       │       ├── main.tf
-│       │       ├── variables.tf
-│       │       ├── versions.tf
-│       │       └── terraform.tfvars.example
-│       └── vagrant-dev/
-│           ├── ai-stack/                  # Development: AI services on Vagrant VMs
-│           │   ├── main.tf
-│           │   ├── variables.tf
-│           │   ├── outputs.tf
-│           │   ├── versions.tf
-│           │   ├── openwebui/Vagrantfile
-│           │   ├── searxng/Vagrantfile
-│           │   └── n8n/Vagrantfile
-│           └── observability/             # Development: Monitoring on Vagrant VMs
-│               ├── main.tf
-│               ├── versions.tf
-│               ├── prometheus/Vagrantfile
-│               └── grafana/Vagrantfile
-└── ansible/
-    ├── deploy-ai-stack.yml                # Playbook for AI services
-    ├── deploy-observability-stack.yml     # Playbook for monitoring services
+│       ├── proxmox-prod/                  # → terraform/environments/proxmox-prod/README.md
+│       │   ├── ai-stack/                  # → .../ai-stack/README.md
+│       │   ├── observability/             # → .../observability/README.md
+│       │   ├── forgejo-stack/             # → .../forgejo-stack/README.md
+│       │   └── k3s/                       # → .../k3s/README.md  (WIP)
+│       └── vagrant-dev/                   # → terraform/environments/vagrant-dev/README.md
+│           ├── ai-stack/                  # → .../ai-stack/README.md
+│           ├── observability/             # → .../observability/README.md
+│           └── forgejo-stack/             # → .../forgejo-stack/README.md
+└── ansible/                               # → ansible/README.md
+    ├── deploy-ai-stack.yml
+    ├── deploy-observability-stack.yml
+    ├── deploy-forgejo-stack.yml
     ├── templates/
-    │   ├── openwebui/
-    │   │   └── docker.env.j2             # Open WebUI environment config
-    │   ├── prometheus/
-    │   │   └── prometheus.yml.j2         # Prometheus scrape config
-    │   └── grafana/
-    │       └── datasources.yml.j2        # Grafana datasource config
+    │   ├── openwebui/docker.env.j2
+    │   ├── prometheus/prometheus.yml.j2
+    │   └── grafana/datasources.yml.j2
     ├── files/
-    │   └── searxng/
-    │       └── settings.yml              # SearXNG search engine configuration
+    │   ├── searxng/settings.yml
+    │   └── forgejo/                       # TLS cert + key (key is git-ignored)
     └── inventory/
-        ├── proxmox-prod/
+        ├── proxmox-prod/                  # → ansible/inventory/proxmox-prod/README.md
         │   ├── ansible.cfg
         │   ├── ai-stack/
-        │   │   └── inventory.tpl         # Terraform template → inventory.ini
-        │   └── observability-stack/
-        │       └── inventory.tpl         # Terraform template → inventory.ini
-        └── vagrant-dev/
+        │   ├── observability-stack/
+        │   └── forgejo-stack/
+        └── vagrant-dev/                   # → ansible/inventory/vagrant-dev/README.md
             ├── ansible.cfg
             ├── ai-stack/
-            │   └── inventory.tpl         # Terraform template → inventory.ini
-            └── observability-stack/
-                └── inventory.tpl         # Terraform template → inventory.ini
+            ├── observability-stack/
+            └── forgejo-stack/
 ```
 
 ## Setup
@@ -147,23 +136,17 @@ pveum acl modify / --user terraform@pve --role PVEAdmin
 2. Stop the container.
 3. Remove the network interface.
 4. `vzdump 100 --mode stop --compress gzip --dumpdir /var/lib/vz/template/cache` (replace `100` with the actual container ID).
-5. Rename the resulting file to `debian13-docker-template.tar.gz`.
-6. Verify: `ls -la /var/lib/vz/template/cache/debian13-docker-template.tar.gz`
+5. Rename the resulting file to match your `template_file_id`.
+6. Verify: `ls -la /var/lib/vz/template/cache/`
 
 ### 3. Configure Variables
 
 Each stack has its own `terraform.tfvars.example`. Copy it to `terraform.tfvars` in the same directory:
 
 ```bash
-# AI stack
-cd terraform/environments/proxmox-prod/ai-stack    # or vagrant-dev/ai-stack
+cd terraform/environments/proxmox-prod/ai-stack    # or any other stack
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your environment-specific values
-
-# Observability stack
-cd terraform/environments/proxmox-prod/observability    # or vagrant-dev/observability
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — includes ai_stack_ips for cross-stack monitoring
+# Edit with your environment-specific values
 ```
 
 Use environment variables for sensitive data:
@@ -183,48 +166,44 @@ ansible-galaxy collection install community.docker
 
 ### 5. Deploy
 
-Each stack is deployed independently with its own Terraform state and Ansible inventory. Deploy the AI stack first, then the observability stack.
+Each stack is deployed independently. Commands must be run from within the stack directory for Terraform, and from the repo root for Ansible.
 
 **AI Stack**
 
 ```bash
-# Step 1: Provision hosts
-cd terraform/environments/vagrant-dev/ai-stack   # or proxmox-prod/ai-stack
-terraform init
-terraform plan
-terraform apply
-# Creates hosts + generates ansible/inventory/<env>/ai-stack/inventory.ini
+cd terraform/environments/proxmox-prod/ai-stack   # or vagrant-dev/ai-stack
+terraform init && terraform apply
+# Generates: ansible/inventory/proxmox-prod/ai-stack/inventory.ini
 
-# Step 2: Deploy containers (from repo root)
-ANSIBLE_CONFIG=ansible/inventory/vagrant-dev/ansible.cfg \
-  ansible-playbook -i ansible/inventory/vagrant-dev/ai-stack/inventory.ini \
-  ansible/deploy-ai-stack.yml
-
-# Or for production
+# From repo root
 ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
   ansible-playbook -i ansible/inventory/proxmox-prod/ai-stack/inventory.ini \
   ansible/deploy-ai-stack.yml
 ```
 
-**Observability Stack**
+**Observability Stack** (deploy after AI stack)
 
 ```bash
-# Step 1: Provision hosts
-cd terraform/environments/vagrant-dev/observability   # or proxmox-prod/observability
-terraform init
-terraform plan
-terraform apply
-# Creates hosts + generates ansible/inventory/<env>/observability-stack/inventory.ini
+cd terraform/environments/proxmox-prod/observability   # or vagrant-dev/observability
+terraform init && terraform apply
 
-# Step 2: Deploy containers (from repo root)
-ANSIBLE_CONFIG=ansible/inventory/vagrant-dev/ansible.cfg \
-  ansible-playbook -i ansible/inventory/vagrant-dev/observability-stack/inventory.ini \
-  ansible/deploy-observability-stack.yml
-
-# Or for production
+# From repo root
 ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
   ansible-playbook -i ansible/inventory/proxmox-prod/observability-stack/inventory.ini \
   ansible/deploy-observability-stack.yml
+```
+
+**Forgejo Stack**
+
+```bash
+cd terraform/environments/proxmox-prod/forgejo-stack   # or vagrant-dev/forgejo-stack
+terraform init && terraform apply
+# Generates: ansible/inventory/proxmox-prod/forgejo-stack/inventory.ini
+
+# From repo root
+ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
+  ansible-playbook -i ansible/inventory/proxmox-prod/forgejo-stack/inventory.ini \
+  ansible/deploy-forgejo-stack.yml
 ```
 
 ### 6. Set Up SSH Agent (proxmox-prod only)
@@ -246,7 +225,7 @@ pveum acl modify / --user terraform@pve --role PVEAdmin
 
 ### TLS Certificate Issues
 
-If using self-signed certificates, set in your `terraform.tfvars`:
+If using self-signed certificates on the Proxmox API, set in your `terraform.tfvars`:
 
 ```hcl
 proxmox_tls_insecure = true
@@ -266,7 +245,7 @@ ssh-add ~/.ssh/id_rsa  # Add if not loaded
 Verify the template exists in Proxmox storage:
 
 ```bash
-ls -la /var/lib/vz/template/cache/debian13-docker-template.tar.gz
+ls -la /var/lib/vz/template/cache/
 ```
 
 ## Additional Resources
@@ -279,3 +258,4 @@ ls -la /var/lib/vz/template/cache/debian13-docker-template.tar.gz
 - [n8n Documentation](https://docs.n8n.io/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
+- [Forgejo Documentation](https://forgejo.org/docs/latest/)

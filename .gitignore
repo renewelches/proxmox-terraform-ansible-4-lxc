@@ -39,8 +39,5 @@ ansible/inventory/**/inventory.ini
 # TLS private keys (never commit)
 ansible/files/**/*.key
 
-# Claude Code
-CLAUDE.md
-
 # OS
 .DS_Store

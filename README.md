@@ -68,10 +68,18 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 .
 ├── terraform/                             # → terraform/README.md
 │   └── environments/
-│       ├── proxmox-prod/
-│       │   ├── ai-stack/                  # → .../ai-stack/README.md
-│       │   ├── observability/             # → .../observability/README.md
-│       └── vagrant-dev/                   # → terraform/environments/
+│       └── prod/
+│           └── proxmox/
+│               ├── ai-stack/              # → .../ai-stack/README.md
+│               └── observability/         # → .../observability/README.md
+├── vagrant/
+│   └── vagrant-vb/                        # VirtualBox dev environment
+│       ├── ai-stack/
+│       │   ├── Vagrantfile
+│       │   └── gen-inventory.sh
+│       └── observability/
+│           ├── Vagrantfile
+│           └── gen-inventory.sh
 └── ansible/                               # → ansible/README.md
     ├── deploy-ai-stack.yml
     ├── deploy-observability-stack.yml
@@ -82,14 +90,15 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
     ├── files/
     │   └── searxng/settings.yml
     └── inventory/
-        ├── proxmox-prod/                  # → ansible/inventory/proxmox-prod/README.md
-        │   ├── ansible.cfg
-        │   ├── ai-stack/
-        │   └── observability-stack/
-        └── vagrant-dev/                   # → ansible/inventory/vagrant-dev/README.md
-            ├── ansible.cfg
-            ├── ai-stack/
-            └── observability-stack/
+        ├── prod/
+        │   └── proxmox/                   # → ansible/inventory/prod/proxmox/README.md
+        │       ├── ansible.cfg
+        │       ├── ai-stack/
+        │       └── observability-stack/
+        └── dev/
+            └── vagrant-vb/               # → ansible/inventory/dev/vagrant-vb/README.md
+                ├── ansible.cfg
+                └── ai-stack/
 ```
 
 ## Setup

@@ -1,0 +1,70 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Open WebUI: 2 vCPU, 1.5 GB RAM, 50 GB disk, private IP 192.168.56.3
+  config.vm.define "openwebui" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "open-webui"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.3"
+    vm.vm.network "forwarded_port", guest: 80, host: 8080
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "openwebui"
+      vb.memory = 1536
+      vb.cpus = 2
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # SearXNG: 1 vCPU, 1 GB RAM, 50 GB disk, private IP 192.168.56.4
+  config.vm.define "searxng" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "searxng"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.4"
+    vm.vm.network "forwarded_port", guest: 80, host: 8081
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "searxng"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # n8n: 2 vCPU, 2 GB RAM, 50 GB disk, private IP 192.168.56.5
+  config.vm.define "n8n" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "n8n"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.5"
+    vm.vm.network "forwarded_port", guest: 5678, host: 5678
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "n8n"
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+end

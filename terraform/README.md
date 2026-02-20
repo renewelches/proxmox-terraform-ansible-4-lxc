@@ -1,39 +1,62 @@
 # Terraform
 
-Terraform provisions the infrastructure (LXC containers or Vagrant VMs) and generates the Ansible inventory files.
+Terraform provisions Proxmox LXC containers and generates the Ansible inventory files. Local development uses Vagrant directly — see `vagrant/` — not Terraform.
 
 ## Structure
 
 ```
 terraform/
 └── environments/
-    ├── proxmox-prod/    # Production: Proxmox LXC containers
-    │   ├── ai-stack/
-    │   ├── observability/
-    │   ├── forgejo-stack/
-    │   └── k3s/         # Work in progress
-    └── vagrant-dev/     # Development: VirtualBox VMs via Vagrant
-        ├── ai-stack/
-        ├── observability/
-        └── forgejo-stack/
+    └── prod/
+        └── proxmox/    # Production: Proxmox LXC containers
+            ├── ai-stack/
+            └── observability/
 ```
 
 Each stack directory is an independent Terraform root module with its own state. Run all Terraform commands from within the stack directory.
 
 ## Providers
 
-| Environment | Provider | Version |
-|-------------|----------|---------|
+| Environment  | Provider                                                                    | Version     |
+| ------------ | --------------------------------------------------------------------------- | ----------- |
 | proxmox-prod | [`bpg/proxmox`](https://registry.terraform.io/providers/bpg/proxmox/latest) | `>= 0.89.0` |
-| vagrant-dev | [`bmatcuk/vagrant`](https://registry.terraform.io/providers/bmatcuk/vagrant/latest) | `~> 4.1.0` |
 
-Both environments also use `hashicorp/local` to write the generated `inventory.ini`.
+Also uses `hashicorp/local` to write the generated `inventory.ini`.
 
 ## Inventory Generation
 
-Each `terraform apply` writes an `inventory.ini` into the corresponding `ansible/inventory/<env>/<stack>/` directory via a `local_file` resource. The path is hardcoded relative to the stack directory (`../../../../ansible/inventory/...`), so Terraform must be run from within the stack directory.
+Each `terraform apply` writes an `inventory.ini` into the corresponding `ansible/inventory/prod/proxmox/<stack>/` directory via a `local_file` resource. The path is hardcoded relative to the stack directory (`../../../../ansible/inventory/...`), so Terraform must be run from within the stack directory.
 
 ## Environment Details
 
-- [proxmox-prod →](environments/proxmox-prod/)
-- [vagrant-dev →](environments/vagrant-dev/)
+### Proxmox Production Environment
+
+All stacks in this directory provision LXC containers on Proxmox VE using the [`bpg/proxmox`](https://registry.terraform.io/providers/bpg/proxmox/latest/docs) provider. Each stack is independently deployable with its own Terraform state.
+
+#### Stacks
+
+| Stack         | Directory                                                                                                                 | Containers               | Description                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------- |
+| AI Stack      | [`ai-stack`](environments/prod/proxmox/ai-stack/) — [README](environments/prod/proxmox/ai-stack/README.md)                | Open WebUI, SearXNG, n8n | AI and automation services         |
+| Observability | [`observability`](environments/prod/proxmox/observability/) — [README](environments/prod/proxmox/observability/README.md) | Prometheus, Grafana      | Monitoring for the AI stack        |
+
+#### Common Setup
+
+All stacks share the same Proxmox credentials. Set these once as environment variables:
+
+```bash
+export TF_VAR_proxmox_api_token="terraform@pve!provider=..."
+export TF_VAR_proxmox_host_default_pwd="your-password"
+```
+
+SSH agent must be running with your key loaded for Ansible to connect:
+
+```bash
+eval $(ssh-agent)
+ssh-add ~/.ssh/id_rsa
+```
+
+#### Recommended Deploy Order
+
+1. `ai-stack` — core services
+2. `observability` — depends on ai-stack IPs for Prometheus scraping

@@ -7,7 +7,7 @@ This repository contains Terraform and Ansible configuration for deploying conta
 
 ## What This Deploys
 
-The project is organized into three independently deployable stacks:
+The project is organized into two independently deployable stacks:
 
 ### AI Stack
 
@@ -40,28 +40,20 @@ Two Docker-enabled containers for monitoring the AI stack:
    - Auto-provisioned with Prometheus as a data source
    - Accessible on port 3000
 
-### Forgejo Stack
-
-One Docker-enabled container for self-hosted Git:
-
-1. **Forgejo** (`forgejo`) — Self-hosted Git service
-   - 2 CPU cores, 2 GB RAM, 50 GB storage
-   - HTTPS on port 3000 with a self-signed certificate
-   - Git SSH on port 2222
-   - SQLite database
-
 All stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"` in `/etc/docker/daemon.json`), enabling Prometheus to scrape container metrics across all hosts.
 
 ## Environments
 
-| Aspect | proxmox-prod | vagrant-dev |
-|--------|-------------|-------------|
-| Infrastructure | Proxmox LXC containers | Vagrant VirtualBox VMs |
-| Provider | `bpg/proxmox` | `bmatcuk/vagrant` |
-| Networking | Static IPs | Port forwarding (localhost) |
-| SSH User | root | vagrant |
-| SSH Auth | SSH agent key | Vagrant-generated keys |
-| Base Image | `debian13-docker_v29-template.tar.gz` | `cloud-image/debian-13` box |
+The **Vagrant environment** (`vagrant/`) is intended for local development and testing of the Ansible playbooks. It spins up lightweight VMs on your local machine (VirtualBox) that mirror the production topology, letting you iterate on Ansible roles and configuration without touching the Proxmox cluster. Once the playbooks are validated locally, they can be applied to production unchanged — only the inventory differs.
+
+| Aspect         | proxmox-prod                          | vagrant-dev                               |
+| -------------- | ------------------------------------- | ----------------------------------------- |
+| Infrastructure | Proxmox LXC containers                | Vagrant VirtualBox/UTM VMs                |
+| Purpose        | Production workloads                  | Local Ansible development & testing       |
+| Networking     | Static IPs                            | Port forwarding (localhost)               |
+| SSH User       | root                                  | vagrant                                   |
+| SSH Auth       | SSH agent key                         | Vagrant-generated keys                    |
+| Base Image     | `debian13-docker_v29-template.tar.gz` | `cloud-image/debian-13` / `utm/debian-12` |
 
 ## Prerequisites
 
@@ -76,37 +68,28 @@ All stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"` 
 .
 ├── terraform/                             # → terraform/README.md
 │   └── environments/
-│       ├── proxmox-prod/                  # → terraform/environments/proxmox-prod/README.md
+│       ├── proxmox-prod/
 │       │   ├── ai-stack/                  # → .../ai-stack/README.md
 │       │   ├── observability/             # → .../observability/README.md
-│       │   ├── forgejo-stack/             # → .../forgejo-stack/README.md
-│       │   └── k3s/                       # → .../k3s/README.md  (WIP)
-│       └── vagrant-dev/                   # → terraform/environments/vagrant-dev/README.md
-│           ├── ai-stack/                  # → .../ai-stack/README.md
-│           ├── observability/             # → .../observability/README.md
-│           └── forgejo-stack/             # → .../forgejo-stack/README.md
+│       └── vagrant-dev/                   # → terraform/environments/
 └── ansible/                               # → ansible/README.md
     ├── deploy-ai-stack.yml
     ├── deploy-observability-stack.yml
-    ├── deploy-forgejo-stack.yml
     ├── templates/
     │   ├── openwebui/docker.env.j2
     │   ├── prometheus/prometheus.yml.j2
     │   └── grafana/datasources.yml.j2
     ├── files/
-    │   ├── searxng/settings.yml
-    │   └── forgejo/                       # TLS cert + key (key is git-ignored)
+    │   └── searxng/settings.yml
     └── inventory/
         ├── proxmox-prod/                  # → ansible/inventory/proxmox-prod/README.md
         │   ├── ansible.cfg
         │   ├── ai-stack/
-        │   ├── observability-stack/
-        │   └── forgejo-stack/
+        │   └── observability-stack/
         └── vagrant-dev/                   # → ansible/inventory/vagrant-dev/README.md
             ├── ansible.cfg
             ├── ai-stack/
-            ├── observability-stack/
-            └── forgejo-stack/
+            └── observability-stack/
 ```
 
 ## Setup
@@ -193,18 +176,6 @@ ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
   ansible/deploy-observability-stack.yml
 ```
 
-**Forgejo Stack**
-
-```bash
-cd terraform/environments/proxmox-prod/forgejo-stack   # or vagrant-dev/forgejo-stack
-terraform init && terraform apply
-# Generates: ansible/inventory/proxmox-prod/forgejo-stack/inventory.ini
-
-# From repo root
-ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
-  ansible-playbook -i ansible/inventory/proxmox-prod/forgejo-stack/inventory.ini \
-  ansible/deploy-forgejo-stack.yml
-```
 
 ### 6. Set Up SSH Agent (proxmox-prod only)
 
@@ -258,4 +229,3 @@ ls -la /var/lib/vz/template/cache/
 - [n8n Documentation](https://docs.n8n.io/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
-- [Forgejo Documentation](https://forgejo.org/docs/latest/)

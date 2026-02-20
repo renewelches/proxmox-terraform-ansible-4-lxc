@@ -1,0 +1,49 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Prometheus: 1 vCPU, 2 GB RAM, 20 GB disk, private IP 192.168.56.6
+  config.vm.define "prometheus" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "prometheus"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.6"
+    vm.vm.network "forwarded_port", guest: 9090, host: 9090
+    vm.vm.disk :disk, size: "20GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "prometheus"
+      vb.memory = 2048
+      vb.cpus = 1
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # Grafana: 1 vCPU, 1 GB RAM, 20 GB disk, private IP 192.168.56.7
+  # Note: previously 192.168.56.5 (conflicted with n8n); corrected to .7
+  config.vm.define "grafana" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "grafana"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.7"
+    vm.vm.network "forwarded_port", guest: 3000, host: 3000
+    vm.vm.disk :disk, size: "20GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "grafana"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+end

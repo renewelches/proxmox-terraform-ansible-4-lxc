@@ -1,6 +1,8 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+require 'fileutils'
+
 Vagrant.configure("2") do |config|
   # Prometheus: 1 vCPU, 2 GB RAM, 20 GB disk, private IP 192.168.56.6
   config.vm.define "prometheus" do |vm|
@@ -45,5 +47,59 @@ Vagrant.configure("2") do |config|
       systemctl start docker
       usermod -aG docker vagrant
     SHELL
+  end
+
+  # After all VMs are up, generate the Ansible inventory automatically.
+  # Requires the ai-stack to already be running (IPs 192.168.56.3-5 are hardcoded).
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "grafana"
+    trigger.ruby do |env, machine|
+      machines = {}
+      all_up = true
+
+      { prometheus: "prometheus", grafana: "grafana" }.each do |vm_sym, host_alias|
+        m = env.machine(vm_sym, :virtualbox)
+        info = m.ssh_info
+        if info.nil?
+          machine.ui.warn "VM '#{vm_sym}' is not running; skipping inventory generation."
+          all_up = false
+          break
+        end
+        machines[host_alias] = { port: info[:port], key: info[:private_key_path]&.first }
+      end
+
+      next unless all_up
+
+      inventory_dir = File.expand_path("../../../ansible/inventory/dev/vagrant-vb/observability-stack", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        prometheus ansible_host=127.0.0.1 ansible_port=#{machines["prometheus"][:port]} ansible_ssh_private_key_file=#{machines["prometheus"][:key]}
+        grafana    ansible_host=127.0.0.1 ansible_port=#{machines["grafana"][:port]} ansible_ssh_private_key_file=#{machines["grafana"][:key]}
+
+        [containers]
+        prometheus
+        grafana
+
+        [prometheus]
+        prometheus
+
+        [grafana]
+        grafana
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+        prometheus_ip=192.168.56.6
+        ai_stack_ip_openwebui=192.168.56.3
+        ai_stack_ip_searxng=192.168.56.4
+        ai_stack_ip_n8n=192.168.56.5
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
   end
 end

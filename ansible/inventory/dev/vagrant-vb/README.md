@@ -13,12 +13,20 @@ Disables host key checking (safe for local VMs). Forces use of the per-VM privat
 
 ## Inventories
 
-Each stack has its own subdirectory with an `inventory.tpl` (Terraform template) and a generated `inventory.ini` (git-ignored):
+Each stack has its own subdirectory with a generated `inventory.ini` (git-ignored):
 
 | Stack | Ansible user | Host auth |
-|-------|-------------|-----------|
+| ------- | ------------- | ----------- |
 | ai-stack | `vagrant` | Per-VM Vagrant private key |
 | observability-stack | `vagrant` | Per-VM Vagrant private key |
+
+`inventory.ini` is generated automatically by a `config.trigger.after :up` Ruby block in each stack's `Vagrantfile`. It fires after the last VM comes up and uses Vagrant's internal SSH API to resolve each VM's dynamic port and private key path. No manual script is needed.
+
+For the ai-stack, set `OLLAMA_HOST` before running `vagrant up`:
+
+```bash
+OLLAMA_HOST=http://192.168.1.100:11434 vagrant up
+```
 
 Generated inventories use `127.0.0.1` with the auto-assigned SSH port and the Vagrant-generated private key path. Example:
 

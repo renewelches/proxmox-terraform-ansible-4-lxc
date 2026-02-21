@@ -75,11 +75,9 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 ├── vagrant/
 │   └── vagrant-vb/                        # VirtualBox dev environment
 │       ├── ai-stack/
-│       │   ├── Vagrantfile
-│       │   └── gen-inventory.sh
+│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
 │       └── observability/
-│           ├── Vagrantfile
-│           └── gen-inventory.sh
+│           └── Vagrantfile                # auto-generates inventory.ini on vagrant up
 └── ansible/                               # → ansible/README.md
     ├── deploy-ai-stack.yml
     ├── deploy-observability-stack.yml

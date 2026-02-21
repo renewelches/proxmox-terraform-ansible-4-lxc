@@ -1,6 +1,8 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+require 'fileutils'
+
 Vagrant.configure("2") do |config|
   # Open WebUI: 2 vCPU, 1.5 GB RAM, 50 GB disk, private IP 192.168.56.3
   config.vm.define "openwebui" do |vm|
@@ -66,5 +68,67 @@ Vagrant.configure("2") do |config|
       systemctl start docker
       usermod -aG docker vagrant
     SHELL
+  end
+
+  # After all VMs are up, generate the Ansible inventory automatically.
+  # Set OLLAMA_HOST before running vagrant up:
+  #   OLLAMA_HOST=http://192.168.1.100:11434 vagrant up
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "n8n"
+    trigger.ruby do |env, machine|
+      machines = {}
+      all_up = true
+
+      { openwebui: "open-webui", searxng: "searxng", n8n: "n8n" }.each do |vm_sym, host_alias|
+        m = env.machine(vm_sym, :virtualbox)
+        info = m.ssh_info
+        if info.nil?
+          machine.ui.warn "VM '#{vm_sym}' is not running; skipping inventory generation."
+          all_up = false
+          break
+        end
+        machines[host_alias] = { port: info[:port], key: info[:private_key_path]&.first }
+      end
+
+      next unless all_up
+
+      ollama_host = ENV.fetch("OLLAMA_HOST", "")
+      if ollama_host.empty?
+        machine.ui.warn "OLLAMA_HOST not set — inventory written without it. Re-run with: OLLAMA_HOST=http://<host>:11434 vagrant up"
+      end
+
+      inventory_dir = File.expand_path("../../../ansible/inventory/dev/vagrant-vb/ai-stack", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        n8n ansible_host=127.0.0.1 ansible_port=#{machines["n8n"][:port]} ansible_ssh_private_key_file=#{machines["n8n"][:key]}
+        open-webui ansible_host=127.0.0.1 ansible_port=#{machines["open-webui"][:port]} ansible_ssh_private_key_file=#{machines["open-webui"][:key]}
+        searxng ansible_host=127.0.0.1 ansible_port=#{machines["searxng"][:port]} ansible_ssh_private_key_file=#{machines["searxng"][:key]}
+
+        [containers]
+        n8n
+        open-webui
+        searxng
+
+        [n8n]
+        n8n
+
+        [open-webui]
+        open-webui
+
+        [searxng]
+        searxng
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+        ollama_host=#{ollama_host}
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
   end
 end

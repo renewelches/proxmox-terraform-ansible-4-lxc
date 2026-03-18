@@ -68,8 +68,7 @@
     - name: Run SearXNG container
       community.docker.docker_container:
         name: searxng
-        #I had isses with some newer versions, for now I leave it pinned to the last version that was working for me
-        image: ghcr.io/searxng/searxng:2026.1.16-2d9f213ca
+        image: ghcr.io/searxng/searxng:latest
         state: started
         restart_policy: unless-stopped
         dns_servers:

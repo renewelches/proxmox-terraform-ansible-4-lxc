@@ -1,0 +1,36 @@
+---
+- name: Prepare claude-code container
+  hosts: containers
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install git, tmux, curl, zsh, nodejs, and npm
+      apt:
+        name:
+          - git
+          - tmux
+          - curl
+          - zsh
+          - nodejs
+          - npm
+        state: present
+
+    - name: Set zsh as default shell for root
+      user:
+        name: root
+        shell: /bin/zsh
+
+    - name: Install Claude Code via npm
+      ansible.builtin.shell: npm install -g @anthropic-ai/claude-code
+      args:
+        creates: /usr/local/bin/claude
+
+    - name: Add ~/.local/bin to PATH in .zshrc
+      ansible.builtin.lineinfile:
+        path: /root/.zshrc
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        create: yes

@@ -10,7 +10,8 @@ terraform/
     └── prod/
         └── proxmox/    # Production: Proxmox LXC containers
             ├── ai-stack/
-            └── observability/
+            ├── observability/
+            └── claude-code/
 ```
 
 Each stack directory is an independent Terraform root module with its own state. Run all Terraform commands from within the stack directory.
@@ -39,6 +40,7 @@ All stacks in this directory provision LXC containers on Proxmox VE using the [`
 | ------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------- |
 | AI Stack      | [`ai-stack`](environments/prod/proxmox/ai-stack/) — [README](environments/prod/proxmox/ai-stack/README.md)                | Open WebUI, SearXNG, n8n | AI and automation services         |
 | Observability | [`observability`](environments/prod/proxmox/observability/) — [README](environments/prod/proxmox/observability/README.md) | Prometheus, Grafana      | Monitoring for the AI stack        |
+| Claude Code   | [`claude-code`](environments/prod/proxmox/claude-code/) — [README](environments/prod/proxmox/claude-code/README.md)       | Claude Code              | Claude Code CLI environment        |
 
 #### Common Setup
 
@@ -60,3 +62,4 @@ ssh-add ~/.ssh/id_rsa
 
 1. `ai-stack` — core services
 2. `observability` — depends on ai-stack IPs for Prometheus scraping
+3. `claude-code` — independent, can be deployed at any time

@@ -8,6 +8,7 @@ Ansible deploys Docker containers onto the hosts provisioned by Terraform. All p
 |----------|--------|-------------|
 | `deploy-ai-stack.yml` | ai-stack | Open WebUI, SearXNG, n8n |
 | `deploy-observability-stack.yml` | observability | Prometheus, Grafana |
+| `deploy-claude-code.yml` | claude-code | Claude Code CLI, git, tmux |
 
 Every playbook runs a common preparation play on all hosts that:
 1. Updates and upgrades apt packages
@@ -24,11 +25,13 @@ inventory/
 ├── prod/proxmox/
 │   ├── ansible.cfg              # StrictHostKeyChecking=accept-new, SSH agent auth
 │   ├── ai-stack/
-│   └── observability-stack/
-└── dev/vagrant-vb/  (and vagrant-utm/)
+│   ├── observability-stack/
+│   └── claude-code/
+└── dev/vagrant-vb/
     ├── ansible.cfg              # StrictHostKeyChecking=no, per-host key auth
     ├── ai-stack/
-    └── observability-stack/
+    ├── observability-stack/
+    └── claude-code/
 ```
 
 ## Templates and Files

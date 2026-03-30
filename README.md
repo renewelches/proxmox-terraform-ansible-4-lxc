@@ -26,6 +26,14 @@ Three Docker-enabled containers running:
    - 2 CPU cores, 6 GB RAM, 50 GB storage
    - Persistent data storage with Docker volumes and SQLite
 
+### Claude Code Stack
+
+One container for running Claude Code CLI:
+
+1. **Claude Code** (`claude-code`) — Anthropic's Claude Code CLI with git and tmux
+   - 2 CPU cores, 2 GB RAM, 20 GB storage
+   - Requires `ANTHROPIC_API_KEY` set on the container after deployment
+
 ### Observability Stack
 
 Two Docker-enabled containers for monitoring the AI stack:
@@ -71,16 +79,20 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 │       └── prod/
 │           └── proxmox/
 │               ├── ai-stack/              # → .../ai-stack/README.md
-│               └── observability/         # → .../observability/README.md
+│               ├── observability/         # → .../observability/README.md
+│               └── claude-code/           # → .../claude-code/README.md
 ├── vagrant/
 │   └── vagrant-vb/                        # VirtualBox dev environment
 │       ├── ai-stack/
 │       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
-│       └── observability/
+│       ├── observability/
+│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
+│       └── claude-code/
 │           └── Vagrantfile                # auto-generates inventory.ini on vagrant up
 └── ansible/                               # → ansible/README.md
     ├── deploy-ai-stack.yml
     ├── deploy-observability-stack.yml
+    ├── deploy-claude-code.yml
     ├── templates/
     │   ├── openwebui/docker.env.j2
     │   ├── prometheus/prometheus.yml.j2
@@ -96,7 +108,9 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
         └── dev/
             └── vagrant-vb/               # → ansible/inventory/dev/vagrant-vb/README.md
                 ├── ansible.cfg
-                └── ai-stack/
+                ├── ai-stack/
+                ├── observability-stack/
+                └── claude-code/
 ```
 
 ## Setup
@@ -183,6 +197,20 @@ ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
   ansible/deploy-observability-stack.yml
 ```
 
+**Claude Code Stack**
+
+```bash
+cd terraform/environments/prod/proxmox/claude-code   # or vagrant/vagrant-vb/claude-code
+terraform init && terraform apply
+
+# From repo root
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/claude-code/inventory.ini \
+  ansible/deploy-claude-code.yml
+
+# After deploying, set the API key on the container:
+#   export ANTHROPIC_API_KEY=sk-ant-...
+```
 
 ### 6. Set Up SSH Agent (proxmox-prod only)
 
@@ -236,3 +264,4 @@ ls -la /var/lib/vz/template/cache/
 - [n8n Documentation](https://docs.n8n.io/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
+- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)

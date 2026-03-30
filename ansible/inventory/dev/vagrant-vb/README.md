@@ -19,6 +19,7 @@ Each stack has its own subdirectory with a generated `inventory.ini` (git-ignore
 | ------- | ------------- | ----------- |
 | ai-stack | `vagrant` | Per-VM Vagrant private key |
 | observability-stack | `vagrant` | Per-VM Vagrant private key |
+| claude-code | `vagrant` | Per-VM Vagrant private key |
 
 `inventory.ini` is generated automatically by a `config.trigger.after :up` Ruby block in each stack's `Vagrantfile`. It fires after the last VM comes up and uses Vagrant's internal SSH API to resolve each VM's dynamic port and private key path. No manual script is needed.
 

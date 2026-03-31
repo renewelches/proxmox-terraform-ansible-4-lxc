@@ -20,6 +20,8 @@ Each stack has its own subdirectory with an `inventory.tpl` (Terraform template)
 | ai-stack | `root` | SSH agent |
 | observability-stack | `root` | SSH agent |
 | claude-code | `root` | SSH agent |
+| termix | `root` | SSH agent |
+| forgejo | `root` | SSH agent |
 
 Generated inventories use direct static IPs. Example:
 

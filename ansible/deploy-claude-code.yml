@@ -17,6 +17,8 @@
           - zsh
           - nodejs
           - npm
+          - gnupg
+          - pass
         state: present
 
     - name: Set zsh as default shell for root

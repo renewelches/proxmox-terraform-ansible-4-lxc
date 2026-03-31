@@ -1,0 +1,64 @@
+---
+- name: Prepare termix container
+  hosts: containers
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install docker Python library (required for ansible docker modules)
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Ensure docker metrics endpoint for prometheus is configured and exposed
+      ansible.builtin.lineinfile:
+        path: /etc/docker/daemon.json
+        line: "{ \"metrics-addr\": \"0.0.0.0:9323\" }"
+        state: present
+        create: true
+
+    - name: Ensure docker service is restarted after config change
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+- name: Deploy Termix
+  hosts: termix
+  become: yes
+  tasks:
+    - name: Create termix Docker network
+      community.docker.docker_network:
+        name: termix-net
+
+    - name: Create termix data volume
+      community.docker.docker_volume:
+        name: termix-data
+
+    - name: Run guacd container
+      community.docker.docker_container:
+        name: guacd
+        image: guacamole/guacd:latest
+        state: started
+        pull: always
+        restart_policy: unless-stopped
+        networks:
+          - name: termix-net
+
+    - name: Run Termix container
+      community.docker.docker_container:
+        name: termix
+        image: ghcr.io/lukegus/termix:latest
+        state: started
+        pull: always
+        restart_policy: unless-stopped
+        ports:
+          - "8080:8080"
+        env:
+          PORT: "8080"
+        volumes:
+          - termix-data:/app/data
+        networks:
+          - name: termix-net

@@ -1,0 +1,69 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'fileutils'
+
+FORGEJO_DOMAIN = ENV["FORGEJO_DOMAIN"] || raise("FORGEJO_DOMAIN env var is required. Example: FORGEJO_DOMAIN=forgejo.example.com vagrant up")
+
+Vagrant.configure("2") do |config|
+  # forgejo: 2 vCPU, 2 GB RAM, 50 GB disk, private IP 192.168.56.10
+  config.vm.define "forgejo" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "forgejo"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.10"
+    # Forgejo HTTPS web UI
+    vm.vm.network "forwarded_port", guest: 3000, host: 3000
+    # Forgejo git SSH
+    vm.vm.network "forwarded_port", guest: 2222, host: 2223
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "forgejo"
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # After the VM is up, generate the Ansible inventory automatically.
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "forgejo"
+    trigger.ruby do |env, machine|
+      m = env.machine(:forgejo, :virtualbox)
+      info = m.ssh_info
+      if info.nil?
+        machine.ui.warn "VM 'forgejo' is not running; skipping inventory generation."
+        next
+      end
+
+      inventory_dir = File.expand_path("../../../ansible/inventory/dev/vagrant-vb/forgejo", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        forgejo ansible_host=127.0.0.1 ansible_port=#{info[:port]} ansible_ssh_private_key_file=#{info[:private_key_path]&.first}
+
+        [containers]
+        forgejo
+
+        [forgejo]
+        forgejo
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+        forgejo_domain=#{FORGEJO_DOMAIN}
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
+  end
+end

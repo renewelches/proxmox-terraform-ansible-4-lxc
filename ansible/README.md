@@ -9,6 +9,8 @@ Ansible deploys Docker containers onto the hosts provisioned by Terraform. All p
 | `deploy-ai-stack.yml` | ai-stack | Open WebUI, SearXNG, n8n |
 | `deploy-observability-stack.yml` | observability | Prometheus, Grafana |
 | `deploy-claude-code.yml` | claude-code | Claude Code CLI, git, tmux |
+| `deploy-termix.yml` | termix | Termix web terminal + guacd |
+| `deploy-forgejo-stack.yml` | forgejo | Forgejo self-hosted Git (HTTPS + SSH) |
 
 Every playbook runs a common preparation play on all hosts that:
 1. Updates and upgrades apt packages
@@ -26,12 +28,16 @@ inventory/
 │   ├── ansible.cfg              # StrictHostKeyChecking=accept-new, SSH agent auth
 │   ├── ai-stack/
 │   ├── observability-stack/
-│   └── claude-code/
+│   ├── claude-code/
+│   ├── termix/
+│   └── forgejo/
 └── dev/vagrant-vb/
     ├── ansible.cfg              # StrictHostKeyChecking=no, per-host key auth
     ├── ai-stack/
     ├── observability-stack/
-    └── claude-code/
+    ├── claude-code/
+    ├── termix/
+    └── forgejo/
 ```
 
 ## Templates and Files

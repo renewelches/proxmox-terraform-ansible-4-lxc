@@ -7,7 +7,7 @@ This repository contains Terraform and Ansible configuration for deploying conta
 
 ## What This Deploys
 
-The project is organized into two independently deployable stacks:
+The project is organized into independently deployable stacks:
 
 ### AI Stack
 
@@ -25,6 +25,16 @@ Three Docker-enabled containers running:
 3. **n8n** (`n8n`) — Workflow automation platform
    - 2 CPU cores, 6 GB RAM, 50 GB storage
    - Persistent data storage with Docker volumes and SQLite
+
+### Forgejo Stack
+
+One Docker-enabled container running:
+
+1. **Forgejo** (`forgejo`) — Self-hosted Git service
+   - 2 CPU cores, 2 GB RAM, 50 GB storage
+   - HTTPS web UI on port 443, Git SSH on port 2222
+   - Requires TLS certificate/key in `ansible/files/forgejo/` before deployment
+   - Set `FORGEJO_DOMAIN` env var before running `vagrant up`
 
 ### Claude Code Stack
 
@@ -80,19 +90,27 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 │           └── proxmox/
 │               ├── ai-stack/              # → .../ai-stack/README.md
 │               ├── observability/         # → .../observability/README.md
-│               └── claude-code/           # → .../claude-code/README.md
+│               ├── claude-code/           # → .../claude-code/README.md
+│               ├── termix/               # → .../termix/README.md
+│               └── forgejo/              # → .../forgejo/README.md
 ├── vagrant/
 │   └── vagrant-vb/                        # VirtualBox dev environment
 │       ├── ai-stack/
 │       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
 │       ├── observability/
 │       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
-│       └── claude-code/
-│           └── Vagrantfile                # auto-generates inventory.ini on vagrant up
+│       ├── claude-code/
+│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
+│       ├── termix/
+│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
+│       └── forgejo/
+│           └── Vagrantfile                # auto-generates inventory.ini on vagrant up (requires FORGEJO_DOMAIN)
 └── ansible/                               # → ansible/README.md
     ├── deploy-ai-stack.yml
     ├── deploy-observability-stack.yml
     ├── deploy-claude-code.yml
+    ├── deploy-termix.yml
+    ├── deploy-forgejo-stack.yml
     ├── templates/
     │   ├── openwebui/docker.env.j2
     │   ├── prometheus/prometheus.yml.j2
@@ -110,7 +128,9 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
                 ├── ansible.cfg
                 ├── ai-stack/
                 ├── observability-stack/
-                └── claude-code/
+                ├── claude-code/
+                ├── termix/
+                └── forgejo/
 ```
 
 ## Setup
@@ -212,6 +232,18 @@ ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
 #   export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+**Forgejo Stack** (requires TLS certs in `ansible/files/forgejo/` beforehand)
+
+```bash
+cd terraform/environments/prod/proxmox/forgejo   # or vagrant/vagrant-vb/forgejo
+terraform init && terraform apply
+
+# From repo root
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/forgejo/inventory.ini \
+  ansible/deploy-forgejo-stack.yml
+```
+
 ### 6. Set Up SSH Agent (proxmox-prod only)
 
 ```bash
@@ -265,3 +297,4 @@ ls -la /var/lib/vz/template/cache/
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
 - [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
+- [Forgejo Documentation](https://forgejo.org/docs/latest/)

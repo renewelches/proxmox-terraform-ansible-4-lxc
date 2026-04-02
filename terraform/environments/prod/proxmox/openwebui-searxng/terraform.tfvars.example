@@ -1,0 +1,20 @@
+# Copy this file to terraform.tfvars and fill in your actual values
+# DO NOT commit terraform.tfvars to version control
+# Sensitive values can be set via environment variables (TF_VAR_<name>) or tools like Vault
+
+proxmox_api_url          = "https://proxmox.lab.home/api2/json"
+proxmox_api_token        = "terraform@pve!provider=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_tls_insecure     = false  # Set to true for self-signed certificates
+proxmox_nodes = {
+  openwebui = "pve1",
+  searxng   = "pve1",
+}
+proxmox_host_default_pwd = "changeme"
+ollama_host              = "http://ollama.lab.home:11434"
+template_file_id         = "pve-cluster:vztmpl/debian13-docker-template.tar.gz"
+static_ips = {
+  searxng    = "192.168.1.30",
+  open_webui = "192.168.1.40",
+}
+enable_replication = false  # Set to true for multi-node clusters
+replication_target = ""     # e.g. "pve2"

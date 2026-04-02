@@ -1,0 +1,59 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'fileutils'
+
+Vagrant.configure("2") do |config|
+  # claude-code: 2 vCPU, 2 GB RAM, 20 GB disk, private IP 192.168.56.8
+  config.vm.define "claude-code" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "claude-code"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.8"
+    vm.vm.disk :disk, size: "20GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "claude-code"
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y git tmux nodejs npm
+    SHELL
+  end
+
+  # After the VM is up, generate the Ansible inventory automatically.
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "claude-code"
+    trigger.ruby do |env, machine|
+      m = env.machine(:"claude-code", :virtualbox)
+      info = m.ssh_info
+      if info.nil?
+        machine.ui.warn "VM 'claude-code' is not running; skipping inventory generation."
+        next
+      end
+
+      inventory_dir = File.expand_path("../../ansible/inventory/dev/claude-code", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        claude-code ansible_host=127.0.0.1 ansible_port=#{info[:port]} ansible_ssh_private_key_file=#{info[:private_key_path]&.first}
+
+        [containers]
+        claude-code
+
+        [claude-code]
+        claude-code
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
+  end
+end

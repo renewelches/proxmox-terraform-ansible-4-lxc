@@ -1,0 +1,93 @@
+---
+- name: Prepare n8n container
+  hosts: containers
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install docker Python library (required for ansible docker modules)
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Ensure docker metrics endpoint for prometheus is configured and exposed
+      ansible.builtin.lineinfile:
+        path: /etc/docker/daemon.json
+        line: "{ \"metrics-addr\": \"0.0.0.0:9323\" }"
+        state: present
+        create: true
+
+    - name: Ensure docker service is restarted after config change
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+- name: Deploy n8n
+  hosts: n8n
+  become: yes
+  tasks:
+    - name: Create certs directory
+      file:
+        path: /root/certs
+        state: directory
+
+    - name: Copy TLS certificate
+      copy:
+        src: n8n/n8n.crt
+        dest: /root/certs/n8n.crt
+
+    - name: Copy TLS private key
+      copy:
+        src: n8n/n8n.key
+        dest: /root/certs/n8n.key
+        mode: '0600'
+
+    - name: Copy Nginx config
+      copy:
+        src: n8n/nginx.conf
+        dest: /root/nginx.conf
+
+    - name: Create Docker network for n8n
+      community.docker.docker_network:
+        name: n8n-net
+
+    - name: Create n8n data volume
+      community.docker.docker_volume:
+        name: n8n_data
+
+    - name: Run n8n container
+      community.docker.docker_container:
+        name: n8n
+        image: docker.n8n.io/n8nio/n8n
+        state: started
+        pull: always
+        restart_policy: unless-stopped
+        networks:
+          - name: n8n-net
+        env:
+          GENERIC_TIMEZONE: "America/New_York"
+          TZ: "America/New_York"
+          N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+          N8N_RUNNERS_ENABLED: "true"
+          N8N_SECURE_COOKIE: "true"
+          DB_SQLITE_POOL_SIZE: "5"
+        volumes:
+          - n8n_data:/home/node/.n8n
+
+    - name: Run Nginx TLS proxy for n8n
+      community.docker.docker_container:
+        name: n8n-nginx
+        image: nginx:alpine
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: n8n-net
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - /root/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+          - /root/certs:/etc/nginx/certs:ro

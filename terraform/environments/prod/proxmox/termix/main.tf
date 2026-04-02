@@ -51,6 +51,14 @@ resource "proxmox_virtual_environment_container" "termix-container" {
   }
 }
 
+resource "proxmox_replication" "termix" {
+  count    = var.enable_replication ? 1 : 0
+  id       = "${proxmox_virtual_environment_container.termix-container.vm_id}-0"
+  type     = "local"
+  target   = var.replication_target
+  schedule = "*/15"
+}
+
 # Generate Ansible inventory from container IP
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/../../../../../ansible/inventory/prod/proxmox/termix/inventory.tpl", {

@@ -47,6 +47,24 @@
         networks:
           - name: termix-net
 
+    - name: Create termix SSL directory
+      ansible.builtin.file:
+        path: /etc/termix/ssl
+        state: directory
+        mode: "0755"
+
+    - name: Copy termix TLS certificate
+      ansible.builtin.copy:
+        src: files/termix/termix.crt
+        dest: /etc/termix/ssl/termix.crt
+        mode: "0644"
+
+    - name: Copy termix TLS key
+      ansible.builtin.copy:
+        src: files/termix/termix.key
+        dest: /etc/termix/ssl/termix.key
+        mode: "0644"
+
     - name: Run Termix container
       community.docker.docker_container:
         name: termix
@@ -55,10 +73,18 @@
         pull: always
         restart_policy: unless-stopped
         ports:
-          - "8080:8080"
+          - "80:8080"
+          - "443:443"
         env:
           PORT: "8080"
+          ENABLE_SSL: "true"
+          SSL_DOMAIN: "termix.grumples.home"
+          SSL_CERT_PATH: "/etc/termix/ssl/termix.crt"
+          SSL_KEY_PATH: "/etc/termix/ssl/termix.key"
+          SSL_PORT: "443"
         volumes:
           - termix-data:/app/data
+          - /etc/termix/ssl:/etc/termix/ssl:ro
+          - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
         networks:
           - name: termix-net

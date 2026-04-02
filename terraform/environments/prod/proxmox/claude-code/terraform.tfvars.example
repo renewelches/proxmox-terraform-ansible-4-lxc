@@ -9,3 +9,5 @@ proxmox_node             = "pve1"
 proxmox_host_default_pwd = "changeme"
 template_file_id         = "pve-cluster:vztmpl/debian13-docker-template.tar.gz"
 static_ip                = "192.168.1.60"
+enable_replication       = false  # Set to true for multi-node clusters
+replication_target       = ""     # e.g. "pve2"

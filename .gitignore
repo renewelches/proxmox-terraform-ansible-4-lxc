@@ -23,6 +23,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Terraform backend config (opt-in, not committed)
+backend.tf
+
 # Ignore lock files (optional - some teams commit this)
 # .terraform.lock.hcl
 terraform.log
@@ -36,8 +39,9 @@ terraform.log
 # Ansible generated inventory
 ansible/inventory/**/inventory.ini
 
-# TLS private keys (never commit)
+# TLS certificates and private keys (never commit)
 ansible/files/**/*.key
+ansible/files/**/*.crt
 
 # OS
 .DS_Store

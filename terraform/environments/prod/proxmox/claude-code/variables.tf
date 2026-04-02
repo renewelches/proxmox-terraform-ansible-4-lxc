@@ -47,3 +47,15 @@ variable "os_type" {
   type        = string
   default     = "debian"
 }
+
+variable "enable_replication" {
+  description = "Enable replication to another Proxmox node (requires multi-node cluster)"
+  type        = bool
+  default     = false
+}
+
+variable "replication_target" {
+  description = "Target Proxmox node for replication (required if enable_replication = true)"
+  type        = string
+  default     = ""
+}

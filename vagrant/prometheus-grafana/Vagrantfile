@@ -1,0 +1,102 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'fileutils'
+
+Vagrant.configure("2") do |config|
+  # Prometheus: 1 vCPU, 2 GB RAM, 20 GB disk, private IP 192.168.56.6
+  config.vm.define "prometheus" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "prometheus"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.6"
+    vm.vm.network "forwarded_port", guest: 9090, host: 9090
+    vm.vm.disk :disk, size: "20GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "prometheus"
+      vb.memory = 2048
+      vb.cpus = 1
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # Grafana: 1 vCPU, 1 GB RAM, 20 GB disk, private IP 192.168.56.7
+  # Note: previously 192.168.56.5 (conflicted with n8n); corrected to .7
+  config.vm.define "grafana" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "grafana"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.7"
+    vm.vm.network "forwarded_port", guest: 3000, host: 3000
+    vm.vm.disk :disk, size: "20GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "grafana"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # After all VMs are up, generate the Ansible inventory automatically.
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "grafana"
+    trigger.ruby do |env, machine|
+      machines = {}
+      all_up = true
+
+      { prometheus: "prometheus", grafana: "grafana" }.each do |vm_sym, host_alias|
+        m = env.machine(vm_sym, :virtualbox)
+        info = m.ssh_info
+        if info.nil?
+          machine.ui.warn "VM '#{vm_sym}' is not running; skipping inventory generation."
+          all_up = false
+          break
+        end
+        machines[host_alias] = { port: info[:port], key: info[:private_key_path]&.first }
+      end
+
+      next unless all_up
+
+      inventory_dir = File.expand_path("../../ansible/inventory/dev/prometheus-grafana", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        prometheus ansible_host=127.0.0.1 ansible_port=#{machines["prometheus"][:port]} ansible_ssh_private_key_file=#{machines["prometheus"][:key]}
+        grafana    ansible_host=127.0.0.1 ansible_port=#{machines["grafana"][:port]} ansible_ssh_private_key_file=#{machines["grafana"][:key]}
+
+        [containers]
+        prometheus
+        grafana
+
+        [prometheus]
+        prometheus
+
+        [grafana]
+        grafana
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+        prometheus_ip=192.168.56.6
+        grafana_ip=192.168.56.7
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
+  end
+end

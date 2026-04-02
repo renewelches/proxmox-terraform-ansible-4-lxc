@@ -51,7 +51,7 @@ terraform apply
 # From repo root
 ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
   ansible-playbook -i ansible/inventory/prod/proxmox/forgejo/inventory.ini \
-  ansible/deploy-forgejo-stack.yml
+  ansible/deploy-forgejo.yml
 ```
 
 Forgejo is then accessible at `https://<forgejo_domain>`. Git SSH clone URLs use port 2222.

@@ -46,11 +46,11 @@ One container for running Claude Code CLI:
 
 ### Observability Stack
 
-Two Docker-enabled containers for monitoring the AI stack:
+Two Docker-enabled containers for monitoring:
 
 1. **Prometheus** (`prometheus`) — Metrics collection and monitoring
    - 2 CPU cores, 2 GB RAM, 50 GB storage
-   - Scrapes Docker metrics from all AI stack containers on port 9323
+   - Scrapes Docker metrics on port 9323 from targets defined in `group_vars/all.yml`
    - Accessible on port 9090
 
 2. **Grafana** (`grafana`) — Visualization and dashboards
@@ -82,55 +82,67 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 
 ## Project Structure
 
-```
+```text
 .
 ├── terraform/                             # → terraform/README.md
 │   └── environments/
 │       └── prod/
 │           └── proxmox/
-│               ├── ai-stack/              # → .../ai-stack/README.md
+│               ├── openwebui-searxng/              # → .../openwebui-searxng/README.md
 │               ├── observability/         # → .../observability/README.md
 │               ├── claude-code/           # → .../claude-code/README.md
 │               ├── termix/               # → .../termix/README.md
-│               └── forgejo/              # → .../forgejo/README.md
-├── vagrant/
-│   └── vagrant-vb/                        # VirtualBox dev environment
-│       ├── ai-stack/
-│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
-│       ├── observability/
-│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
-│       ├── claude-code/
-│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
-│       ├── termix/
-│       │   └── Vagrantfile                # auto-generates inventory.ini on vagrant up
-│       └── forgejo/
-│           └── Vagrantfile                # auto-generates inventory.ini on vagrant up (requires FORGEJO_DOMAIN)
+│               ├── forgejo/              # → .../forgejo/README.md
+│               └── n8n/                  # → .../n8n/README.md
+├── vagrant/                               # VirtualBox dev environment
+│   ├── openwebui-searxng/
+│   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
+│   ├── observability/
+│   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
+│   ├── claude-code/
+│   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
+│   ├── termix/
+│   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
+│   ├── forgejo/
+│   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up (requires FORGEJO_DOMAIN)
+│   └── n8n/
+│       └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
 └── ansible/                               # → ansible/README.md
-    ├── deploy-ai-stack.yml
-    ├── deploy-observability-stack.yml
+    ├── deploy-openwebui-searxng.yml
+    ├── deploy-prometheus-grafana.yml
     ├── deploy-claude-code.yml
     ├── deploy-termix.yml
-    ├── deploy-forgejo-stack.yml
+    ├── deploy-forgejo.yml
+    ├── deploy-n8n.yml
     ├── templates/
     │   ├── openwebui/docker.env.j2
     │   ├── prometheus/prometheus.yml.j2
     │   └── grafana/datasources.yml.j2
     ├── files/
-    │   └── searxng/settings.yml
+    │   ├── searxng/settings.yml
+    │   ├── termix/                        # termix.crt + termix.key (git-ignored)
+    │   ├── forgejo/                       # forgejo.crt + forgejo.key (git-ignored)
+    │   └── grafana/                       # grafana.crt + grafana.key (git-ignored)
     └── inventory/
         ├── prod/
         │   └── proxmox/                   # → ansible/inventory/prod/proxmox/README.md
         │       ├── ansible.cfg
-        │       ├── ai-stack/
-        │       └── observability-stack/
-        └── dev/
-            └── vagrant-vb/               # → ansible/inventory/dev/vagrant-vb/README.md
-                ├── ansible.cfg
-                ├── ai-stack/
-                ├── observability-stack/
-                ├── claude-code/
-                ├── termix/
-                └── forgejo/
+        │       ├── openwebui-searxng/
+        │       ├── prometheus-grafana/
+        │       │   └── group_vars/all.yml # Prometheus scrape targets
+        │       ├── claude-code/
+        │       ├── termix/
+        │       ├── forgejo/
+        │       └── n8n/
+        └── dev/                           # → ansible/inventory/dev/README.md
+            ├── ansible.cfg
+            ├── openwebui-searxng/
+            ├── prometheus-grafana/
+            │   └── group_vars/all.yml     # Prometheus scrape targets
+            ├── claude-code/
+            ├── termix/
+            ├── forgejo/
+            └── n8n/
 ```
 
 ## Setup
@@ -168,7 +180,7 @@ pveum acl modify / --user terraform@pve --role PVEAdmin
 Each stack has its own `terraform.tfvars.example`. Copy it to `terraform.tfvars` in the same directory:
 
 ```bash
-cd terraform/environments/proxmox-prod/ai-stack    # or any other stack
+cd terraform/environments/proxmox-prod/openwebui-searxng    # or any other stack
 cp terraform.tfvars.example terraform.tfvars
 # Edit with your environment-specific values
 ```
@@ -192,35 +204,39 @@ ansible-galaxy collection install community.docker
 
 Each stack is deployed independently. Commands must be run from within the stack directory for Terraform, and from the repo root for Ansible.
 
-**AI Stack**
+#### Deploy: AI Stack
 
 ```bash
-cd terraform/environments/proxmox-prod/ai-stack   # or vagrant-dev/ai-stack
+cd terraform/environments/prod/proxmox/openwebui-searxng   # or vagrant/openwebui-searxng
 terraform init && terraform apply
-# Generates: ansible/inventory/proxmox-prod/ai-stack/inventory.ini
+# Generates: ansible/inventory/prod/proxmox/openwebui-searxng/inventory.ini
 
 # From repo root
-ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
-  ansible-playbook -i ansible/inventory/proxmox-prod/ai-stack/inventory.ini \
-  ansible/deploy-ai-stack.yml
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/openwebui-searxng/inventory.ini \
+  ansible/deploy-openwebui-searxng.yml
 ```
 
-**Observability Stack** (deploy after AI stack)
+#### Deploy: Observability Stack
 
 ```bash
-cd terraform/environments/proxmox-prod/observability   # or vagrant-dev/observability
+cd terraform/environments/prod/proxmox/observability   # or vagrant/observability
 terraform init && terraform apply
+# Generates: ansible/inventory/prod/proxmox/prometheus-grafana/inventory.ini
+
+# Edit scrape targets before running Ansible:
+#   ansible/inventory/prod/proxmox/prometheus-grafana/group_vars/all.yml
 
 # From repo root
-ANSIBLE_CONFIG=ansible/inventory/proxmox-prod/ansible.cfg \
-  ansible-playbook -i ansible/inventory/proxmox-prod/observability-stack/inventory.ini \
-  ansible/deploy-observability-stack.yml
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/prometheus-grafana/inventory.ini \
+  ansible/deploy-prometheus-grafana.yml
 ```
 
-**Claude Code Stack**
+#### Deploy: Claude Code Stack
 
 ```bash
-cd terraform/environments/prod/proxmox/claude-code   # or vagrant/vagrant-vb/claude-code
+cd terraform/environments/prod/proxmox/claude-code   # or vagrant/claude-code
 terraform init && terraform apply
 
 # From repo root
@@ -232,16 +248,44 @@ ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
 #   export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**Forgejo Stack** (requires TLS certs in `ansible/files/forgejo/` beforehand)
+#### Deploy: Termix Stack
+
+Requires TLS cert/key in `ansible/files/termix/` beforehand.
 
 ```bash
-cd terraform/environments/prod/proxmox/forgejo   # or vagrant/vagrant-vb/forgejo
+cd terraform/environments/prod/proxmox/termix   # or vagrant/termix
+terraform init && terraform apply
+
+# From repo root
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/termix/inventory.ini \
+  ansible/deploy-termix.yml
+```
+
+#### Deploy: Forgejo Stack
+
+Requires TLS cert/key in `ansible/files/forgejo/` beforehand.
+
+```bash
+cd terraform/environments/prod/proxmox/forgejo   # or vagrant/forgejo
 terraform init && terraform apply
 
 # From repo root
 ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
   ansible-playbook -i ansible/inventory/prod/proxmox/forgejo/inventory.ini \
-  ansible/deploy-forgejo-stack.yml
+  ansible/deploy-forgejo.yml
+```
+
+#### Deploy: n8n Stack
+
+```bash
+cd terraform/environments/prod/proxmox/n8n   # or vagrant/n8n
+terraform init && terraform apply
+
+# From repo root
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/n8n/inventory.ini \
+  ansible/deploy-n8n.yml
 ```
 
 ### 6. Set Up SSH Agent (proxmox-prod only)

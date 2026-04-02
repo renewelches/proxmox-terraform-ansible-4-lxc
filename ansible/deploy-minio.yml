@@ -1,0 +1,70 @@
+---
+- name: Prepare minio container
+  hosts: containers
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install docker Python library (required for ansible docker modules)
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Ensure docker metrics endpoint for prometheus is configured and exposed
+      ansible.builtin.lineinfile:
+        path: /etc/docker/daemon.json
+        line: "{ \"metrics-addr\": \"0.0.0.0:9323\" }"
+        state: present
+        create: true
+
+    - name: Ensure docker service is restarted after config change
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+- name: Deploy MinIO
+  hosts: minio
+  become: yes
+  tasks:
+    - name: Create certs directory
+      file:
+        path: /etc/minio/certs
+        state: directory
+        mode: '0755'
+
+    - name: Copy TLS certificate
+      copy:
+        src: files/minio/minio.crt
+        dest: /etc/minio/certs/public.crt
+        mode: '0644'
+
+    - name: Copy TLS private key
+      copy:
+        src: files/minio/minio.key
+        dest: /etc/minio/certs/private.key
+        mode: '0600'
+
+    - name: Create MinIO data volume
+      community.docker.docker_volume:
+        name: minio_data
+
+    - name: Run MinIO container
+      community.docker.docker_container:
+        name: minio
+        image: minio/minio:latest
+        state: started
+        pull: always
+        restart_policy: unless-stopped
+        command: server /data --console-address ":9001"
+        ports:
+          - "9000:9000"
+          - "9001:9001"
+        env:
+          MINIO_ROOT_USER: "{{ minio_root_user }}"
+          MINIO_ROOT_PASSWORD: "{{ minio_root_password }}"
+        volumes:
+          - minio_data:/data
+          - /etc/minio/certs:/root/.minio/certs:ro

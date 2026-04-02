@@ -1,0 +1,55 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'fileutils'
+
+Vagrant.configure("2") do |config|
+  # n8n: 2 vCPU, 2 GB RAM, 50 GB disk, private IP 192.168.56.5
+  config.vm.define "n8n" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "n8n"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.5"
+    vm.vm.network "forwarded_port", guest: 5678, host: 5678
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "n8n"
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+  end
+
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "n8n"
+    trigger.ruby do |env, machine|
+      m = env.machine(:n8n, :virtualbox)
+      info = m.ssh_info
+      if info.nil?
+        machine.ui.warn "VM 'n8n' is not running; skipping inventory generation."
+        next
+      end
+
+      inventory_dir = File.expand_path("../../ansible/inventory/dev/n8n", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        n8n ansible_host=127.0.0.1 ansible_port=#{info[:port]} ansible_ssh_private_key_file=#{info[:private_key_path]&.first}
+
+        [containers]
+        n8n
+
+        [n8n]
+        n8n
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
+  end
+end

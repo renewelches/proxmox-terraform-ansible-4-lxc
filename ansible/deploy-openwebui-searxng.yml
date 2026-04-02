@@ -1,0 +1,167 @@
+---
+- name: Prepare all containers
+  hosts: containers
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install docker Python library (required for ansible docker modules)
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Ensure docker metrics endpoint for prometheus is configured and exposed
+      ansible.builtin.lineinfile:
+        path: /etc/docker/daemon.json
+        line: "{ \"metrics-addr\": \"0.0.0.0:9323\" }"
+        state: present
+        create: true
+    - name: Ensure docker service is restarted after config change
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+- name: Deploy Open WebUI
+  hosts: open-webui
+  become: yes
+  vars:
+    searxng_ip: "{{ hostvars['searxng']['ansible_host'] }}"
+  tasks:
+    - name: Copy docker.env file
+      template:
+        src: openwebui/docker.env.j2
+        dest: /tmp/docker.env
+
+    - name: Create certs directory
+      file:
+        path: /root/certs
+        state: directory
+
+    - name: Copy TLS certificate
+      copy:
+        src: openwebui/openwebui.crt
+        dest: /root/certs/openwebui.crt
+
+    - name: Copy TLS private key
+      copy:
+        src: openwebui/openwebui.key
+        dest: /root/certs/openwebui.key
+        mode: '0600'
+
+    - name: Copy Nginx config
+      copy:
+        src: openwebui/nginx.conf
+        dest: /root/nginx.conf
+
+    - name: Create Docker network for Open WebUI
+      community.docker.docker_network:
+        name: openwebui-net
+
+    - name: Run Open WebUI container
+      community.docker.docker_container:
+        name: open-webui
+        image: ghcr.io/open-webui/open-webui:main
+        state: started
+        pull: always
+        restart_policy: unless-stopped
+        networks:
+          - name: openwebui-net
+        etc_hosts:
+          host.docker.internal: host-gateway
+        env:
+          OLLAMA_BASE_URL: "{{ ollama_host }}"
+          #Tell Python's HTTP libraries where to find the CA bundle 
+          # to verify SSL certificates:
+          SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+          REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+        env_file: /tmp/docker.env
+        volumes:
+          - open-webui:/app/backend/data
+          - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+
+    - name: Run Nginx TLS proxy for Open WebUI
+      community.docker.docker_container:
+        name: openwebui-nginx
+        image: nginx:alpine
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: openwebui-net
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - /root/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+          - /root/certs:/etc/nginx/certs:ro
+
+- name: Deploy SearXNG
+  hosts: searxng
+  become: yes
+  tasks:
+    - name: Create config directory
+      file:
+        path: /root/config
+        state: directory
+
+    - name: Create certs directory
+      file:
+        path: /root/certs
+        state: directory
+
+    - name: Copy SearXNG settings
+      copy:
+        src: searxng/settings.yml
+        dest: /root/config/settings.yml
+
+    - name: Copy TLS certificate
+      copy:
+        src: searxng/searxng.crt
+        dest: /root/certs/searxng.crt
+
+    - name: Copy TLS private key
+      copy:
+        src: searxng/searxng.key
+        dest: /root/certs/searxng.key
+        mode: '0600'
+
+    - name: Copy Nginx config
+      copy:
+        src: searxng/nginx.conf
+        dest: /root/nginx.conf
+
+    - name: Create Docker network for SearXNG
+      community.docker.docker_network:
+        name: searxng-net
+
+    - name: Run SearXNG container
+      community.docker.docker_container:
+        name: searxng
+        image: ghcr.io/searxng/searxng:latest
+        state: started
+        restart_policy: unless-stopped
+        dns_servers:
+          - 9.9.9.9
+        networks:
+          - name: searxng-net
+        volumes:
+          - /root/config:/etc/searxng
+          - /root/data:/var/cache/searxng
+
+    - name: Run Nginx TLS proxy for SearXNG
+      community.docker.docker_container:
+        name: searxng-nginx
+        image: nginx:alpine
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: searxng-net
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - /root/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+          - /root/certs:/etc/nginx/certs:ro
+

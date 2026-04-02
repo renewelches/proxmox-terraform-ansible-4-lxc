@@ -1,0 +1,122 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'fileutils'
+
+Vagrant.configure("2") do |config|
+  # Open WebUI: 2 vCPU, 4 GB RAM, 50 GB disk, private IP 192.168.56.3
+  # Includes a local Ollama instance with llama3.2:1b pre-pulled.
+  config.vm.define "openwebui" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "open-webui"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.3"
+    vm.vm.network "forwarded_port", guest: 80, host: 8080
+    vm.vm.network "forwarded_port", guest: 443, host: 8443
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "openwebui"
+      vb.memory = 4096
+      vb.cpus = 2
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose curl
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+
+      # Install Ollama
+      curl -fsSL https://ollama.com/install.sh | sh
+
+      # Bind Ollama to all interfaces so Docker containers can reach it
+      mkdir -p /etc/systemd/system/ollama.service.d
+      cat > /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+EOF
+      systemctl daemon-reload
+      systemctl enable ollama
+      systemctl restart ollama
+      # Pull the model (Ollama must be running first)
+      ollama pull llama3.2:1b
+    SHELL
+  end
+
+  # SearXNG: 1 vCPU, 1 GB RAM, 50 GB disk, private IP 192.168.56.4
+  config.vm.define "searxng" do |vm|
+    vm.vm.box = "cloud-image/debian-13"
+    vm.vm.hostname = "searxng"
+    vm.vm.synced_folder ".", "/vagrant", disabled: true
+    vm.vm.network "private_network", ip: "192.168.56.4"
+    vm.vm.network "forwarded_port", guest: 80, host: 8081
+    vm.vm.network "forwarded_port", guest: 443, host: 8444
+    vm.vm.disk :disk, size: "50GB", primary: true
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name = "searxng"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    vm.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y docker.io docker-compose
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker vagrant
+    SHELL
+  end
+
+  # After all VMs are up, generate the Ansible inventory automatically.
+  # Ollama runs locally on the openwebui VM; override OLLAMA_HOST only to point at an external instance:
+  #   OLLAMA_HOST=http://192.168.1.100:11434 vagrant up
+  config.trigger.after :up do |trigger|
+    trigger.name = "Generate Ansible inventory"
+    trigger.only_on = "searxng"
+    trigger.ruby do |env, machine|
+      machines = {}
+      all_up = true
+
+      { openwebui: "open-webui", searxng: "searxng" }.each do |vm_sym, host_alias|
+        m = env.machine(vm_sym, :virtualbox)
+        info = m.ssh_info
+        if info.nil?
+          machine.ui.warn "VM '#{vm_sym}' is not running; skipping inventory generation."
+          all_up = false
+          break
+        end
+        machines[host_alias] = { port: info[:port], key: info[:private_key_path]&.first }
+      end
+
+      next unless all_up
+
+      ollama_host = ENV.fetch("OLLAMA_HOST", "http://host.docker.internal:11434")
+
+      inventory_dir = File.expand_path("../../ansible/inventory/dev/openwebui-searxng", __dir__)
+      FileUtils.mkdir_p(inventory_dir)
+      inventory_path = File.join(inventory_dir, "inventory.ini")
+
+      File.write(inventory_path, <<~INI)
+        [all]
+        open-webui ansible_host=127.0.0.1 ansible_port=#{machines["open-webui"][:port]} ansible_ssh_private_key_file=#{machines["open-webui"][:key]}
+        searxng ansible_host=127.0.0.1 ansible_port=#{machines["searxng"][:port]} ansible_ssh_private_key_file=#{machines["searxng"][:key]}
+
+        [containers]
+        open-webui
+        searxng
+
+        [open-webui]
+        open-webui
+
+        [searxng]
+        searxng
+
+        [all:vars]
+        ansible_user=vagrant
+        ansible_python_interpreter=/usr/bin/python3.13
+        ollama_host=#{ollama_host}
+      INI
+
+      machine.ui.success "Inventory written to: #{inventory_path}"
+    end
+  end
+end

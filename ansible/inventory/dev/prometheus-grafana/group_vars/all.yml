@@ -1,0 +1,9 @@
+---
+# IPs of services that Prometheus scrapes for Docker metrics
+scrape_targets:
+  - ip: "192.168.56.3"
+    label: "open-webui"
+  - ip: "192.168.56.4"
+    label: "searxng"
+  - ip: "192.168.56.5"
+    label: "n8n"

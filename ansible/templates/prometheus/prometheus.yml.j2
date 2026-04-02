@@ -34,7 +34,7 @@ scrape_configs:
   - job_name: docker
     static_configs:
       - targets:
-          - "{{ ai_stack_ip_openwebui }}:9323"  # open-webui
-          - "{{ ai_stack_ip_searxng }}:9323"    # searxng
-          - "{{ ai_stack_ip_n8n }}:9323"        # n8n
+{% for target in scrape_targets %}
+          - "{{ target.ip }}:9323"  # {{ target.label }}
+{% endfor %}
           - "{{ grafana_ip }}:9323"             # grafana

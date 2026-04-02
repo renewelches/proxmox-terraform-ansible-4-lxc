@@ -58,6 +58,16 @@ Two Docker-enabled containers for monitoring:
    - Auto-provisioned with Prometheus as a data source
    - Accessible on port 3000
 
+### MinIO Stack
+
+One Docker-enabled container running:
+
+1. **MinIO** (`minio`) — S3-compatible object storage
+   - 2 CPU cores, 2 GB RAM, 50 GB storage
+   - S3 API on port 9000, web console on port 9001
+   - HTTPS with TLS; requires cert/key in `ansible/files/minio/` before deployment
+   - Credentials configured via `minio_root_user` / `minio_root_password` inventory vars
+
 All stacks configure Docker to expose metrics (`"metrics-addr": "0.0.0.0:9323"` in `/etc/docker/daemon.json`), enabling Prometheus to scrape container metrics across all hosts.
 
 ## Environments
@@ -71,7 +81,7 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 | Networking     | Static IPs                            | Port forwarding (localhost)               |
 | SSH User       | root                                  | vagrant                                   |
 | SSH Auth       | SSH agent key                         | Vagrant-generated keys                    |
-| Base Image     | `debian13-docker_v29-template.tar.gz` | `cloud-image/debian-13` / `utm/debian-12` |
+| Base Image     | `debian13-docker_v29-template.tar.gz` | `cloud-image/debian-13`                   |
 
 ## Prerequisites
 
@@ -88,16 +98,17 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 │   └── environments/
 │       └── prod/
 │           └── proxmox/
-│               ├── openwebui-searxng/              # → .../openwebui-searxng/README.md
-│               ├── observability/         # → .../observability/README.md
+│               ├── openwebui-searxng/     # → .../openwebui-searxng/README.md
+│               ├── prometheus-grafana/    # → .../prometheus-grafana/README.md
 │               ├── claude-code/           # → .../claude-code/README.md
 │               ├── termix/               # → .../termix/README.md
 │               ├── forgejo/              # → .../forgejo/README.md
-│               └── n8n/                  # → .../n8n/README.md
+│               ├── n8n/                  # → .../n8n/README.md
+│               └── minio/               # → .../minio/README.md
 ├── vagrant/                               # VirtualBox dev environment
 │   ├── openwebui-searxng/
 │   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
-│   ├── observability/
+│   ├── prometheus-grafana/
 │   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
 │   ├── claude-code/
 │   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
@@ -105,8 +116,10 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
 │   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
 │   ├── forgejo/
 │   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up (requires FORGEJO_DOMAIN)
-│   └── n8n/
-│       └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
+│   ├── n8n/
+│   │   └── Vagrantfile                    # auto-generates inventory.ini on vagrant up
+│   └── minio/
+│       └── Vagrantfile                    # auto-generates inventory.ini on vagrant up (requires minio.crt/minio.key)
 └── ansible/                               # → ansible/README.md
     ├── deploy-openwebui-searxng.yml
     ├── deploy-prometheus-grafana.yml
@@ -114,6 +127,7 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
     ├── deploy-termix.yml
     ├── deploy-forgejo.yml
     ├── deploy-n8n.yml
+    ├── deploy-minio.yml
     ├── templates/
     │   ├── openwebui/docker.env.j2
     │   ├── prometheus/prometheus.yml.j2
@@ -122,7 +136,8 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
     │   ├── searxng/settings.yml
     │   ├── termix/                        # termix.crt + termix.key (git-ignored)
     │   ├── forgejo/                       # forgejo.crt + forgejo.key (git-ignored)
-    │   └── grafana/                       # grafana.crt + grafana.key (git-ignored)
+    │   ├── grafana/                       # grafana.crt + grafana.key (git-ignored)
+    │   └── minio/                         # minio.crt + minio.key (git-ignored)
     └── inventory/
         ├── prod/
         │   └── proxmox/                   # → ansible/inventory/prod/proxmox/README.md
@@ -133,7 +148,8 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
         │       ├── claude-code/
         │       ├── termix/
         │       ├── forgejo/
-        │       └── n8n/
+        │       ├── n8n/
+        │       └── minio/
         └── dev/                           # → ansible/inventory/dev/README.md
             ├── ansible.cfg
             ├── openwebui-searxng/
@@ -142,7 +158,8 @@ The **Vagrant environment** (`vagrant/`) is intended for local development and t
             ├── claude-code/
             ├── termix/
             ├── forgejo/
-            └── n8n/
+            ├── n8n/
+            └── minio/
 ```
 
 ## Setup
@@ -220,7 +237,7 @@ ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
 #### Deploy: Observability Stack
 
 ```bash
-cd terraform/environments/prod/proxmox/observability   # or vagrant/observability
+cd terraform/environments/prod/proxmox/prometheus-grafana   # or vagrant/prometheus-grafana
 terraform init && terraform apply
 # Generates: ansible/inventory/prod/proxmox/prometheus-grafana/inventory.ini
 
@@ -288,6 +305,20 @@ ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
   ansible/deploy-n8n.yml
 ```
 
+#### Deploy: MinIO Stack
+
+Requires TLS cert/key in `ansible/files/minio/` beforehand.
+
+```bash
+cd terraform/environments/prod/proxmox/minio   # or vagrant/minio
+terraform init && terraform apply
+
+# From repo root
+ANSIBLE_CONFIG=ansible/inventory/prod/proxmox/ansible.cfg \
+  ansible-playbook -i ansible/inventory/prod/proxmox/minio/inventory.ini \
+  ansible/deploy-minio.yml
+```
+
 ### 6. Set Up SSH Agent (proxmox-prod only)
 
 ```bash
@@ -342,3 +373,4 @@ ls -la /var/lib/vz/template/cache/
 - [Grafana Documentation](https://grafana.com/docs/)
 - [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
 - [Forgejo Documentation](https://forgejo.org/docs/latest/)
+- [MinIO Documentation](https://min.io/docs/minio/linux/index.html)

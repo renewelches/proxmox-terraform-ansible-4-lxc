@@ -9,9 +9,9 @@ This repository contains Terraform and Ansible configuration for deploying conta
 
 The project is organized into independently deployable stacks:
 
-### AI Stack
+### openwebui-searxng
 
-Three Docker-enabled containers running:
+Two Docker-enabled containers running:
 
 1. **Open WebUI** (`open-webui`) — Web interface for Ollama AI models
    - 2 CPU cores, 1.5 GB RAM, 50 GB storage
@@ -22,29 +22,16 @@ Three Docker-enabled containers running:
    - 1 CPU core, 512 MB RAM, 30 GB storage
    - Pre-configured for integration with Open WebUI
 
-3. **n8n** (`n8n`) — Workflow automation platform
-   - 2 CPU cores, 6 GB RAM, 50 GB storage
-   - Persistent data storage with Docker volumes and SQLite
-
-### Forgejo Stack
+### n8n
 
 One Docker-enabled container running:
 
-1. **Forgejo** (`forgejo`) — Self-hosted Git service
-   - 2 CPU cores, 2 GB RAM, 50 GB storage
-   - HTTPS web UI on port 443, Git SSH on port 2222
-   - Requires TLS certificate/key in `ansible/files/forgejo/` before deployment
-   - Set `FORGEJO_DOMAIN` env var before running `vagrant up`
+1. **n8n** (`n8n`) — Workflow automation platform
+   - 2 CPU cores, 6 GB RAM, 50 GB storage
+   - Nginx TLS proxy on ports 80/443; requires cert/key in `ansible/files/n8n/` before deployment
+   - Persistent data storage via Docker volume and SQLite
 
-### Claude Code Stack
-
-One container for running Claude Code CLI:
-
-1. **Claude Code** (`claude-code`) — Anthropic's Claude Code CLI with git and tmux
-   - 2 CPU cores, 2 GB RAM, 20 GB storage
-   - Requires `ANTHROPIC_API_KEY` set on the container after deployment
-
-### Observability Stack
+### prometheus-grafana
 
 Two Docker-enabled containers for monitoring:
 
@@ -58,12 +45,39 @@ Two Docker-enabled containers for monitoring:
    - Auto-provisioned with Prometheus as a data source
    - Accessible on port 3000
 
-### MinIO Stack
+### claude-code
+
+One container for running Claude Code CLI:
+
+1. **Claude Code** (`claude-code`) — Anthropic's Claude Code CLI with git and tmux
+   - 2 CPU cores, 2 GB RAM, 20 GB storage
+   - Requires `ANTHROPIC_API_KEY` set on the container after deployment
+
+### termix
+
+One Docker-enabled container running:
+
+1. **Termix** (`termix`) — Web-based remote terminal access (backed by Apache Guacamole)
+   - 2 CPU cores, 2 GB RAM, 20 GB storage
+   - HTTPS on port 443; requires cert/key in `ansible/files/termix/` before deployment
+   - Runs `termix` + `guacd` containers on a shared Docker network
+
+### forgejo
+
+One Docker-enabled container running:
+
+1. **Forgejo** (`forgejo`) — Self-hosted Git service
+   - 2 CPU cores, 2 GB RAM, 50 GB storage
+   - HTTPS web UI on port 443, Git SSH on port 2222
+   - Requires TLS certificate/key in `ansible/files/forgejo/` before deployment
+   - Set `FORGEJO_DOMAIN` env var before running `vagrant up`
+
+### minio
 
 One Docker-enabled container running:
 
 1. **MinIO** (`minio`) — S3-compatible object storage
-   - 2 CPU cores, 2 GB RAM, 50 GB storage
+   - 2 CPU cores, 2 GB RAM, 100 GB storage
    - S3 API on port 9000, web console on port 9001
    - HTTPS with TLS; requires cert/key in `ansible/files/minio/` before deployment
    - Credentials configured via `minio_root_user` / `minio_root_password` inventory vars

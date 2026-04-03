@@ -1,3 +1,9 @@
+![Maintenance](https://img.shields.io/badge/Maintained%3F-no-red.svg)
+> [!WARNING]
+> This project is no longer actively maintained. No new features, bug fixes, or security updates will be provided. Use at your own risk.
+> Use [proxmox-lxc-iac](https://github.com/renewelches/proxmox-lxc-iac) instead.
+
+
 # Proxmox Terraform + Ansible Configuration
 
 This repository contains Terraform and Ansible configuration for deploying containerized applications using LXC containers (production) or Vagrant VMs (development).
